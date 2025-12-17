@@ -80,6 +80,11 @@
 
 **Note:** Xcode project file (`.xcodeproj`) must be created manually via Xcode.
 
+### Git Operations
+- [x] Pushed to remote: `git@github.com:indrasvat/jools.git`
+- Branch: `create-jools`
+- PR ready at: https://github.com/indrasvat/jools/pull/new/create-jools
+
 ### Next Steps
 - [ ] Create Xcode project in Xcode IDE
 - [ ] Add JoolsKit as local package dependency
