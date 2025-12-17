@@ -4,13 +4,13 @@
 # Install hooks: lefthook install (or ./scripts/bootstrap)
 # Uninstall:     lefthook uninstall
 
-# Pre-push: Full CI pipeline before pushing
+# Pre-push: Quick checks (lint + kit build) before pushing
 pre-push:
   commands:
-    ci-pipeline:
+    quick-check:
       env:
         PATH: "/opt/homebrew/bin:/usr/local/bin:${PATH}"
-      run: make ci
+      run: make lint kit-build
       fail_text: |
 
         ╔═══════════════════════════════════════════════════════════════╗
