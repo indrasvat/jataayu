@@ -3719,7 +3719,40 @@ func withRetry<T>(
 }
 ```
 
-### D. Changelog
+### D. Development Conventions
+
+#### Git Commit Messages
+
+Use **conventional commits** with brief, one-line messages:
+
+```
+<type>: <short description>
+```
+
+**Types:**
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `docs:` - Documentation changes
+- `chore:` - Maintenance tasks
+- `refactor:` - Code refactoring
+- `test:` - Test additions/changes
+- `style:` - Formatting changes
+
+**Examples:**
+```bash
+feat: add app icon matching onboarding logo
+fix: resolve polling service memory leak
+docs: update API reference for v1alpha
+chore: lighten pre-push hook to lint + kit-build only
+```
+
+**Key rules:**
+- Keep messages brief and to the point (one line)
+- Use imperative mood ("add" not "added")
+- No period at end
+- For intermediate commits during feature work, brevity is preferred
+
+### E. Changelog
 
 - **v2.0** (2025-12-16): Complete rewrite with verified API documentation
   - Added comprehensive API reference from official docs
