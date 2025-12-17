@@ -22,7 +22,28 @@ public actor APIClient {
         self.baseURL = baseURL
 
         self.decoder = JSONDecoder()
-        self.decoder.dateDecodingStrategy = .iso8601
+        self.decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+
+            // Try ISO8601 with fractional seconds first
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+
+            // Fallback to standard ISO8601
+            formatter.formatOptions = [.withInternetDateTime]
+            if let date = formatter.date(from: dateString) {
+                return date
+            }
+
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Cannot decode date: \(dateString)"
+            )
+        }
 
         self.encoder = JSONEncoder()
         self.encoder.dateEncodingStrategy = .iso8601
@@ -38,7 +59,9 @@ public actor APIClient {
             throw NetworkError.noAPIKey
         }
 
-        let url = baseURL.appendingPathComponent(endpoint.path)
+        guard let url = URL(string: endpoint.path, relativeTo: baseURL) else {
+            throw NetworkError.invalidResponse
+        }
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")

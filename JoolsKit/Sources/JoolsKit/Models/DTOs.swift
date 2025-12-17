@@ -24,7 +24,7 @@ public struct SessionDTO: Codable, Sendable, Identifiable {
     public let title: String?
     public let prompt: String
     public let state: String?
-    public let sourceContext: SourceContextDTO
+    public let sourceContext: SourceContextDTO?
     public let automationMode: String?
     public let requirePlanApproval: Bool?
     public let outputs: [SessionOutputDTO]?
@@ -168,6 +168,7 @@ public enum SessionState: String, Codable, Sendable, CaseIterable {
     case queued = "QUEUED"
     case running = "RUNNING"
     case awaitingUserInput = "AWAITING_USER_INPUT"
+    case awaitingPlanApproval = "AWAITING_PLAN_APPROVAL"
     case completed = "COMPLETED"
     case failed = "FAILED"
     case cancelled = "CANCELLED"
@@ -178,6 +179,7 @@ public enum SessionState: String, Codable, Sendable, CaseIterable {
         case .queued: return "Queued"
         case .running: return "Running"
         case .awaitingUserInput: return "Needs Input"
+        case .awaitingPlanApproval: return "Needs Approval"
         case .completed: return "Completed"
         case .failed: return "Failed"
         case .cancelled: return "Cancelled"
@@ -186,7 +188,7 @@ public enum SessionState: String, Codable, Sendable, CaseIterable {
 
     public var isActive: Bool {
         switch self {
-        case .queued, .running, .awaitingUserInput:
+        case .queued, .running, .awaitingUserInput, .awaitingPlanApproval:
             return true
         default:
             return false

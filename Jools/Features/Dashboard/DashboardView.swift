@@ -99,16 +99,25 @@ struct UsageStatsCard: View {
 struct SourcesSection: View {
     let sources: [SourceEntity]
 
+    private let columns = [
+        GridItem(.flexible(), spacing: JoolsSpacing.sm),
+        GridItem(.flexible(), spacing: JoolsSpacing.sm),
+    ]
+
     var body: some View {
         VStack(alignment: .leading, spacing: JoolsSpacing.sm) {
-            Text("Sources")
-                .font(.joolsHeadline)
+            HStack {
+                Text("Sources")
+                    .font(.joolsHeadline)
+                Spacer()
+                Text("\(sources.count)")
+                    .font(.joolsCaption)
+                    .foregroundStyle(.secondary)
+            }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: JoolsSpacing.sm) {
-                    ForEach(sources, id: \.id) { source in
-                        SourceCard(source: source)
-                    }
+            LazyVGrid(columns: columns, spacing: JoolsSpacing.sm) {
+                ForEach(sources, id: \.id) { source in
+                    SourceCard(source: source)
                 }
             }
         }
@@ -119,21 +128,30 @@ struct SourceCard: View {
     let source: SourceEntity
 
     var body: some View {
-        VStack(alignment: .leading, spacing: JoolsSpacing.xs) {
+        HStack(spacing: JoolsSpacing.sm) {
             Image(systemName: "folder.fill")
                 .font(.title2)
                 .foregroundStyle(Color.joolsAccent)
+                .frame(width: 36, height: 36)
+                .background(Color.joolsAccent.opacity(0.15))
+                .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.sm))
 
-            Text(source.repo)
-                .font(.joolsHeadline)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(source.repo)
+                    .font(.joolsBody)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
 
-            Text(source.owner)
-                .font(.joolsCaption)
-                .foregroundStyle(.secondary)
+                Text(source.owner)
+                    .font(.joolsCaption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
         }
-        .padding()
-        .frame(width: 140)
+        .padding(JoolsSpacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.joolsSurface)
         .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.md))
     }

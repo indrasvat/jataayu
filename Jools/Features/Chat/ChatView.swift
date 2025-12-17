@@ -327,7 +327,7 @@ struct SessionStateBadge: View {
             return .joolsRunning
         case .queued:
             return .joolsQueued
-        case .awaitingUserInput:
+        case .awaitingUserInput, .awaitingPlanApproval:
             return .joolsAwaiting
         case .completed:
             return .joolsCompleted

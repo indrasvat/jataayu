@@ -18,17 +18,14 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    HStack {
-                        Label("Plan", systemImage: "crown")
-                        Spacer()
-                        Text("Free")
-                            .foregroundStyle(.secondary)
-                    }
-
-                    NavigationLink {
-                        UsageDetailView()
-                    } label: {
-                        Label("Daily Usage", systemImage: "chart.bar")
+                    Link(destination: URL(string: "https://jules.google.com/settings")!) {
+                        HStack {
+                            Label("Plan & Usage", systemImage: "crown")
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
 
@@ -140,35 +137,7 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Placeholder Views
-
-struct UsageDetailView: View {
-    var body: some View {
-        List {
-            Section("Today") {
-                HStack {
-                    Text("Tasks Used")
-                    Spacer()
-                    Text("3/15")
-                }
-                HStack {
-                    Text("Concurrent Tasks")
-                    Spacer()
-                    Text("1/3")
-                }
-            }
-
-            Section {
-                Text("Upgrade to Pro for 100 daily tasks")
-                    .font(.joolsCaption)
-                    .foregroundStyle(.secondary)
-
-                Link("Upgrade Plan", destination: URL(string: "https://jules.google.com/pricing")!)
-            }
-        }
-        .navigationTitle("Usage")
-    }
-}
+// MARK: - Settings Sub-Views
 
 struct AppearanceSettingsView: View {
     @AppStorage("colorScheme") private var colorScheme: String = "system"
