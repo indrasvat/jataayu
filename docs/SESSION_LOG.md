@@ -230,3 +230,96 @@
 - [ ] Implement activities fetching in ChatView
 - [ ] Wire up PollingService for live session updates
 - [ ] Add create session functionality
+
+---
+
+## Useful Commands Reference
+
+### Environment Info
+```bash
+# Simulator ID for iPhone 17 Pro (iOS 26.0.1)
+SIMULATOR_ID="C0364F50-51A7-439E-BCBF-37FB0AD85C5A"
+
+# App bundle ID
+BUNDLE_ID="com.indrasvat.jools"
+
+# Derived data location
+DERIVED_DATA="~/Library/Developer/Xcode/DerivedData/Jools-bzwbsxisxkthlwawqyjijnsytiyh"
+```
+
+### Building
+```bash
+# Build with xcodebuild
+xcodebuild -scheme Jools -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build 2>&1 | tail -20
+
+# Build JoolsKit SPM package
+cd JoolsKit && swift build
+
+# Generate Xcode project from project.yml
+xcodegen generate
+```
+
+### Simulator Management
+```bash
+# List available simulators
+xcrun simctl list devices available | grep -i "iphone"
+
+# Boot simulator
+xcrun simctl boot C0364F50-51A7-439E-BCBF-37FB0AD85C5A && open -a Simulator
+
+# Install app to simulator
+xcrun simctl install booted ~/Library/Developer/Xcode/DerivedData/Jools-bzwbsxisxkthlwawqyjijnsytiyh/Build/Products/Debug-iphonesimulator/Jools.app
+
+# Launch app
+xcrun simctl launch booted com.indrasvat.jools
+
+# Terminate app
+xcrun simctl terminate booted com.indrasvat.jools
+
+# Full reinstall cycle
+xcrun simctl terminate booted com.indrasvat.jools 2>/dev/null; \
+xcrun simctl install booted ~/Library/Developer/Xcode/DerivedData/Jools-bzwbsxisxkthlwawqyjijnsytiyh/Build/Products/Debug-iphonesimulator/Jools.app && \
+xcrun simctl launch booted com.indrasvat.jools
+```
+
+### Screenshots & Clipboard
+```bash
+# Take screenshot
+xcrun simctl io booted screenshot /tmp/jools_screenshot.png
+
+# Copy text to simulator clipboard
+echo "API_KEY_HERE" | xcrun simctl pbcopy booted
+
+# Paste from simulator clipboard
+xcrun simctl pbpaste booted
+```
+
+### Logging
+```bash
+# Stream app logs
+xcrun simctl spawn booted log stream --predicate 'process == "Jools"' --level debug
+
+# Stream to file
+xcrun simctl spawn booted log stream --predicate 'process == "Jools"' --style compact > /tmp/jools_log.txt &
+```
+
+### Jules API Testing
+```bash
+# List sessions (replace API_KEY)
+curl -s -H "x-goog-api-key: API_KEY" \
+  "https://jules.googleapis.com/v1alpha/sessions?pageSize=5" | jq
+
+# List sources
+curl -s -H "x-goog-api-key: API_KEY" \
+  "https://jules.googleapis.com/v1alpha/sources" | jq
+```
+
+### Build + Install + Screenshot (One-liner)
+```bash
+xcodebuild -scheme Jools -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build 2>&1 | \
+grep -E "(BUILD SUCCEEDED|BUILD FAILED)" && \
+xcrun simctl terminate booted com.indrasvat.jools 2>/dev/null; \
+xcrun simctl install booted ~/Library/Developer/Xcode/DerivedData/Jools-bzwbsxisxkthlwawqyjijnsytiyh/Build/Products/Debug-iphonesimulator/Jools.app && \
+xcrun simctl launch booted com.indrasvat.jools && \
+sleep 2 && xcrun simctl io booted screenshot /tmp/jools_latest.png
+```
