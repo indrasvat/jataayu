@@ -9,7 +9,6 @@
 
 PRODUCT_NAME     := Jools
 SCHEME           := Jools
-TEST_SCHEME      := JoolsTests
 JOOLSKIT_PATH    := JoolsKit
 PROJECT          := $(PRODUCT_NAME).xcodeproj
 SIMULATOR        := iPhone 17 Pro
@@ -55,12 +54,13 @@ BUILD_ICON       := 🔨
 HOOK_ICON        := 🪝
 
 .PHONY: all help setup deps check-deps install-deps \
-        build build-release build-device test test-kit test-app coverage \
+        build build-release build-device test test-app coverage \
         lint lint-fix format clean clean-all \
         xcode generate run \
         kit-build kit-test kit-clean kit-update \
         ci pre-push hooks-install hooks-uninstall \
-        status diff log
+        status diff log \
+        sim-list sim-boot sim-build sim-run sim-install sim-launch sim-kill sim-logs sim-shutdown
 
 .DEFAULT_GOAL := help
 
@@ -97,6 +97,9 @@ help: ## Show this help
 	@echo ""
 	@echo "$(BOLD)$(CYAN)  ─── CI/CD ────────────────────────────────────────────────────────$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E '(ci|pre-push)' | awk 'BEGIN {FS = ":.*?## "}; {printf "    $(CYAN)%-18s$(RESET) %s\n", $$1, $$2}'
+	@echo ""
+	@echo "$(BOLD)$(WHITE)  ─── Simulator ────────────────────────────────────────────────────$(RESET)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -E 'sim-' | awk 'BEGIN {FS = ":.*?## "}; {printf "    $(CYAN)%-18s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────────
@@ -210,30 +213,14 @@ xcode: ## Open project in Xcode
 	@echo "$(BOLD)$(ROCKET) Opening Xcode...$(RESET)"
 	@open $(PROJECT)
 
-run: build ## Build and run on simulator
-	@echo "$(BOLD)$(ROCKET) Launching on simulator...$(RESET)"
-	@xcrun simctl boot "$(SIMULATOR)" 2>/dev/null || true
-	@open -a Simulator
-	@xcodebuild \
-		-project $(PROJECT) \
-		-scheme $(SCHEME) \
-		-destination "$(DESTINATION)" \
-		-configuration Debug \
-		build 2>&1 | tail -1
-	@xcrun simctl install booted $(DERIVED_DATA)/$(PRODUCT_NAME)-*/Build/Products/Debug-iphonesimulator/$(PRODUCT_NAME).app 2>/dev/null || true
-	@xcrun simctl launch booted com.indrasvat.jools 2>/dev/null || true
+run: sim-run ## Build and run on simulator (alias for sim-run)
 
 # ─────────────────────────────────────────────────────────────────────────────────
 # Test
 # ─────────────────────────────────────────────────────────────────────────────────
 
-test: test-kit test-app ## Run all tests
+test: kit-test test-app ## Run all tests
 	@echo "$(GREEN)$(CHECK) All tests passed$(RESET)"
-
-test-kit: ## Run JoolsKit unit tests
-	@echo "$(BOLD)$(TEST_ICON) Testing JoolsKit...$(RESET)"
-	@cd $(JOOLSKIT_PATH) && swift test
-	@echo "$(GREEN)$(CHECK) JoolsKit tests passed$(RESET)"
 
 test-app: ## Run iOS app tests
 	@echo "$(BOLD)$(TEST_ICON) Testing $(PRODUCT_NAME) app...$(RESET)"
@@ -358,3 +345,109 @@ diff: ## Show git diff
 
 log: ## Show recent commits
 	@git log --oneline -10
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Simulator
+# ─────────────────────────────────────────────────────────────────────────────────
+
+# Simulator configuration
+BUNDLE_ID := com.indrasvat.jools
+BUILD_OUTPUT := build/Build/Products/Debug-iphonesimulator/$(PRODUCT_NAME).app
+
+sim-list: ## List available iOS simulators
+	@echo "$(BOLD)📱 Available iOS Simulators:$(RESET)"
+	@echo ""
+	@xcrun simctl list devices available | grep -E "(-- iOS|iPhone|iPad)" | head -30
+	@echo ""
+	@SIM_UUID=$$(xcrun simctl list devices available | grep "iPhone 17 Pro" | head -1 | grep -oE '[A-F0-9-]{36}'); \
+	if [ -z "$$SIM_UUID" ]; then \
+		SIM_UUID=$$(xcrun simctl list devices available | grep "iPhone" | head -1 | grep -oE '[A-F0-9-]{36}'); \
+	fi; \
+	if [ -n "$$SIM_UUID" ]; then \
+		SIM_NAME=$$(xcrun simctl list devices available | grep "$$SIM_UUID" | sed 's/ *(.*//' | xargs); \
+		echo "$(GREEN)$(CHECK) Selected: $$SIM_NAME ($$SIM_UUID)$(RESET)"; \
+	else \
+		echo "$(RED)$(CROSS) No suitable simulator found$(RESET)"; \
+		echo ""; \
+		echo "$(YELLOW)Install iOS simulator with:$(RESET)"; \
+		echo "  $(CYAN)xcodebuild -downloadPlatform iOS$(RESET)"; \
+		echo ""; \
+		echo "$(YELLOW)Or create one manually:$(RESET)"; \
+		echo "  $(CYAN)xcrun simctl create \"iPhone 17 Pro\" com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro com.apple.CoreSimulator.SimRuntime.iOS-26-0$(RESET)"; \
+	fi
+
+sim-boot: ## Boot the iOS simulator
+	@SIM_UUID=$$(xcrun simctl list devices available | grep "iPhone 17 Pro" | head -1 | grep -oE '[A-F0-9-]{36}'); \
+	if [ -z "$$SIM_UUID" ]; then \
+		SIM_UUID=$$(xcrun simctl list devices available | grep "iPhone" | head -1 | grep -oE '[A-F0-9-]{36}'); \
+	fi; \
+	if [ -z "$$SIM_UUID" ]; then \
+		echo "$(RED)$(CROSS) No suitable simulator found$(RESET)"; \
+		echo "$(YELLOW)Run 'make sim-list' for help$(RESET)"; \
+		exit 1; \
+	fi; \
+	SIM_NAME=$$(xcrun simctl list devices available | grep "$$SIM_UUID" | sed 's/ *(.*//' | xargs); \
+	echo "$(BOLD)📱 Booting $$SIM_NAME...$(RESET)"; \
+	xcrun simctl boot "$$SIM_UUID" 2>/dev/null || true; \
+	open -a Simulator; \
+	echo "$(GREEN)$(CHECK) Simulator running$(RESET)"
+
+sim-install: ## Install app on booted simulator
+	@if [ ! -d "$(BUILD_OUTPUT)" ]; then \
+		echo "$(RED)$(CROSS) App not built. Run 'make sim-build' first$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(BOLD)📲 Installing $(PRODUCT_NAME)...$(RESET)"
+	@xcrun simctl install booted "$(BUILD_OUTPUT)"
+	@echo "$(GREEN)$(CHECK) App installed$(RESET)"
+
+sim-build: ## Build app for simulator with local build dir
+	@SIM_UUID=$$(xcrun simctl list devices available | grep "iPhone 17 Pro" | head -1 | grep -oE '[A-F0-9-]{36}'); \
+	if [ -z "$$SIM_UUID" ]; then \
+		SIM_UUID=$$(xcrun simctl list devices available | grep "iPhone" | head -1 | grep -oE '[A-F0-9-]{36}'); \
+	fi; \
+	if [ -z "$$SIM_UUID" ]; then \
+		echo "$(RED)$(CROSS) No suitable simulator found$(RESET)"; \
+		echo "$(YELLOW)Run 'make sim-list' for help$(RESET)"; \
+		exit 1; \
+	fi; \
+	SIM_NAME=$$(xcrun simctl list devices available | grep "$$SIM_UUID" | sed 's/ *(.*//' | xargs); \
+	echo "$(BOLD)$(BUILD_ICON) Building $(PRODUCT_NAME) for $$SIM_NAME...$(RESET)"; \
+	xcodebuild \
+		-project $(PROJECT) \
+		-scheme $(SCHEME) \
+		-destination "platform=iOS Simulator,id=$$SIM_UUID" \
+		-derivedDataPath build \
+		-configuration Debug \
+		build 2>&1 | grep -E "(error:|warning:|BUILD)" || true; \
+	if [ -d "$(BUILD_OUTPUT)" ]; then \
+		echo "$(GREEN)$(CHECK) Build succeeded$(RESET)"; \
+	else \
+		echo "$(RED)$(CROSS) Build failed$(RESET)"; \
+		exit 1; \
+	fi
+
+sim-run: sim-build sim-boot sim-install ## Build, install and run app on simulator
+	@echo "$(BOLD)$(ROCKET) Launching $(PRODUCT_NAME)...$(RESET)"
+	@xcrun simctl launch booted "$(BUNDLE_ID)"
+	@echo "$(GREEN)$(CHECK) App running$(RESET)"
+
+sim-launch: ## Launch already-installed app on simulator
+	@echo "$(BOLD)$(ROCKET) Launching $(PRODUCT_NAME)...$(RESET)"
+	@xcrun simctl launch booted "$(BUNDLE_ID)" || (echo "$(RED)$(CROSS) App not installed. Run 'make sim-run' first$(RESET)" && exit 1)
+	@echo "$(GREEN)$(CHECK) App launched$(RESET)"
+
+sim-kill: ## Terminate app on simulator
+	@echo "$(BOLD)Terminating $(PRODUCT_NAME)...$(RESET)"
+	@xcrun simctl terminate booted "$(BUNDLE_ID)" 2>/dev/null || true
+	@echo "$(GREEN)$(CHECK) App terminated$(RESET)"
+
+sim-logs: ## Stream app logs from simulator
+	@echo "$(BOLD)📋 Streaming logs for $(PRODUCT_NAME)...$(RESET)"
+	@echo "$(YELLOW)Press Ctrl+C to stop$(RESET)"
+	@xcrun simctl spawn booted log stream --predicate 'subsystem == "$(BUNDLE_ID)"' --level debug
+
+sim-shutdown: ## Shutdown all simulators
+	@echo "$(BOLD)Shutting down simulators...$(RESET)"
+	@xcrun simctl shutdown all
+	@echo "$(GREEN)$(CHECK) All simulators shut down$(RESET)"
