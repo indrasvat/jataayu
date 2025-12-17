@@ -105,9 +105,9 @@ jools/
 
 This project uses [Lefthook](https://github.com/evilmartians/lefthook) for git hooks:
 
-- **pre-push**: Runs full CI pipeline (`make ci`) before every push
+- **pre-push**: Quick checks (lint + JoolsKit build) before every push
 
-The hooks are automatically installed when you run `./scripts/bootstrap` or `make setup`.
+For full CI validation, run `make ci` manually. The hooks are automatically installed when you run `./scripts/bootstrap` or `make setup`.
 
 ## CI Pipeline
 
