@@ -168,6 +168,65 @@
 | Error | API returns error | Show error alert with retry |
 
 ### Next Steps
-- [ ] Test Safari flow end-to-end with real API key
-- [ ] Implement Dashboard data loading
+- [x] Test Safari flow end-to-end with real API key
+- [x] Implement Dashboard data loading
 - [ ] Wire up PollingService for live updates
+
+---
+
+## Session 4: Dashboard & Sessions API Fix
+**Date:** 2025-12-17
+**Agent:** Claude (Opus 4.5)
+**Status:** Completed
+
+### Issues Addressed
+1. Dashboard Sources layout used horizontal scroll (sparse on larger screens)
+2. Plan section showed hardcoded "Free" - API doesn't expose plan info
+3. Sessions tab showed "No Sessions" despite valid API key
+
+### Root Cause Analysis: Sessions 404 Bug
+- **Problem:** Sessions API returned 404 errors
+- **Root Cause:** `URL.appendingPathComponent()` percent-encodes query strings
+- **Example:** `sessions?pageSize=20` became `sessions%3FpageSize%3D20`
+- **Fix:** Use `URL(string:relativeTo:)` instead to preserve query parameters
+
+### Implementation Completed
+- [x] **Dashboard Grid Layout:** Replaced horizontal ScrollView with LazyVGrid (2-column)
+  - Updated `SourcesSection` with `GridItem(.flexible())` columns
+  - Redesigned `SourceCard` with horizontal layout (icon + repo + owner)
+  - Added source count badge to section header
+- [x] **Plan & Usage Link:** Removed hardcoded plan display
+  - Added `Link` to jules.google.com/settings for web-based plan management
+  - Removed unused `UsageDetailView`
+- [x] **Sessions API Fix:** Fixed URL encoding bug in `APIClient.swift`
+  - Changed from `URL(string: baseURL)!.appendingPathComponent(endpoint.path)`
+  - To `URL(string: endpoint.path, relativeTo: baseURL)`
+- [x] **Date Decoding:** Added custom ISO8601 decoder for nanosecond precision
+  - API returns timestamps like `2025-12-13T21:40:44.485451923Z`
+  - Standard decoder fails; custom decoder handles `.withFractionalSeconds`
+- [x] **DTO Updates:**
+  - Made `sourceContext` optional in `SessionDTO` (API doesn't always return it)
+  - Added `AWAITING_PLAN_APPROVAL` state to `SessionState` enum
+- [x] **SessionsListView:** Added NavigationStack, API sync, pull-to-refresh
+  - Uses `@Query` for SwiftData integration
+  - `syncSessions()` upserts sessions from API to SwiftData
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `APIClient.swift` | URL construction fix, custom date decoder |
+| `DTOs.swift` | Optional sourceContext, new session state |
+| `DashboardView.swift` | LazyVGrid layout, updated SourceCard |
+| `SessionsListView.swift` | NavigationStack, API sync, search |
+| `SettingsView.swift` | Plan link to web |
+| `ChatView.swift` | Handle awaitingPlanApproval state |
+| `Entities.swift` | Handle optional sourceContext |
+
+### Commit
+- **Hash:** `737cc4d`
+- **Message:** `fix: Sessions API URL encoding and Dashboard grid layout`
+
+### Next Steps
+- [ ] Implement activities fetching in ChatView
+- [ ] Wire up PollingService for live session updates
+- [ ] Add create session functionality
