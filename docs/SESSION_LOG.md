@@ -78,7 +78,15 @@
   - Settings (account, preferences, about)
 - [x] Verified JoolsKit builds successfully
 
-**Note:** Xcode project file (`.xcodeproj`) must be created manually via Xcode.
+### Xcode Project Setup (Completed 2025-12-16 20:02)
+- [x] Installed xcodegen via Homebrew
+- [x] Created `project.yml` spec for xcodegen
+- [x] Generated `Jools.xcodeproj` with iOS 26.0 target
+- [x] Fixed Swift 6 strict concurrency issues:
+  - Added `@MainActor` to HapticManager
+  - Fixed Color extension usage (`.joolsAccent` → `Color.joolsAccent`)
+  - Added missing `import JoolsKit` statements
+- [x] Verified successful build on iPhone 17 Pro simulator
 
 ### Git Operations
 - [x] Pushed to remote: `git@github.com:indrasvat/jools.git`
@@ -86,8 +94,6 @@
 - PR ready at: https://github.com/indrasvat/jools/pull/new/create-jools
 
 ### Next Steps
-- [ ] Create Xcode project in Xcode IDE
-- [ ] Add JoolsKit as local package dependency
-- [ ] Configure iOS 26.0 deployment target
-- [ ] Configure Swift 6 strict concurrency
 - [ ] Begin Phase 1: Authentication flow implementation
+- [ ] Wire up APIClient to views
+- [ ] Implement SwiftData persistence sync
