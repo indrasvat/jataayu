@@ -436,6 +436,38 @@ The Jules API doesn't expose a usage/quota endpoint. The workaround counts sessi
 
 ---
 
+## Session 9: UX Improvements
+**Date:** 2025-12-18
+**Agent:** Claude (Opus 4.5)
+**Status:** Completed
+
+### Issues Addressed
+1. **Usage count display fixed** - Usage now correctly shows 7/100 (was showing 0/100)
+2. **Chat auto-scroll** - Sessions now auto-scroll to bottom when opened
+
+### Root Cause Analysis
+- **Usage count**: Two issues - pageSize was 20 (not enough to capture all today's sessions), and timezone mismatch (API returns UTC, app used local time)
+- **Auto-scroll**: ChatView only scrolled on new activities, not on initial load
+
+### Implementation
+- [x] Increased `listSessions` pageSize to 100 to capture all daily sessions
+- [x] Fixed timezone by using UTC calendar for date comparison in `countSessionsCreatedToday()`
+- [x] Updated `syncActivities()` to update existing activities with fresh contentJSON (for artifacts/diff data)
+- [x] Added auto-scroll to bottom in ChatView on initial load and after activities finish loading
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `DashboardViewModel.swift` | UTC calendar for date comparison, pageSize=100 |
+| `ChatViewModel.swift` | Update existing activities in syncActivities() |
+| `ChatView.swift` | Auto-scroll to bottom on appear and load completion |
+
+### Notes
+- Diff count shows +20 vs web UI's +19 - minor 1-line discrepancy due to different calculation methods
+- Our parsing counts all `+` lines (excluding `+++` headers) which is the standard unified diff interpretation
+
+---
+
 ## Useful Commands Reference
 
 ### Environment Info
