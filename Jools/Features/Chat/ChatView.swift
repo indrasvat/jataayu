@@ -37,10 +37,20 @@ struct ChatView: View {
                         }
                         .padding(.vertical)
                     }
+                    .onAppear {
+                        // Initial scroll to bottom when opening session
+                        scrollToBottom(proxy: proxy)
+                    }
+                    .onChange(of: viewModel.isLoading) { _, isLoading in
+                        // Scroll to bottom after activities finish loading
+                        if !isLoading {
+                            scrollToBottom(proxy: proxy)
+                        }
+                    }
                     .onChange(of: session.activities.count) { oldValue, newValue in
-                        // Only scroll when new activities are added
-                        guard newValue > oldValue, let last = sortedActivities.last else { return }
-                        proxy.scrollTo(last.id, anchor: .bottom)
+                        // Scroll when new activities are added
+                        guard newValue > oldValue else { return }
+                        scrollToBottom(proxy: proxy)
                     }
                 }
 
@@ -87,6 +97,19 @@ struct ChatView: View {
 
     private var sortedActivities: [ActivityEntity] {
         session.activities.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy) {
+        // Prefer typing indicator if visible, otherwise last activity
+        if session.state == .running || session.state == .inProgress || session.state == .queued {
+            withAnimation(.easeOut(duration: 0.3)) {
+                proxy.scrollTo("typing-indicator", anchor: .bottom)
+            }
+        } else if let lastActivity = sortedActivities.last {
+            withAnimation(.easeOut(duration: 0.3)) {
+                proxy.scrollTo(lastActivity.id, anchor: .bottom)
+            }
+        }
     }
 
     private func configureViewModel() {
