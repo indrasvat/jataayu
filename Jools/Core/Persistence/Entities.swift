@@ -227,4 +227,25 @@ final class ActivityEntity {
     var hasToolExecutions: Bool {
         !bashCommands.isEmpty
     }
+
+    /// Get the git patch from changeSet artifacts (for session completed activities)
+    var gitPatch: GitPatchDTO? {
+        guard let content = try? JSONDecoder().decode(ActivityContentDTO.self, from: contentJSON) else {
+            return nil
+        }
+        return content.artifacts?.compactMap { $0.changeSet?.gitPatch }.first
+    }
+
+    /// Get diff stats from git patch
+    var diffAdditions: Int {
+        gitPatch?.additions ?? 0
+    }
+
+    var diffDeletions: Int {
+        gitPatch?.deletions ?? 0
+    }
+
+    var changedFiles: [String] {
+        gitPatch?.changedFiles ?? []
+    }
 }

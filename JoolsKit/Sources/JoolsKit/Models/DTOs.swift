@@ -203,6 +203,48 @@ public struct ChangeSetDTO: Codable, Sendable {
 public struct GitPatchDTO: Codable, Sendable {
     public let baseCommitId: String?
     public let patch: String?
+    public let unidiffPatch: String?
+    public let suggestedCommitMessage: String?
+
+    /// The actual patch content (prefers unidiffPatch over patch)
+    public var patchContent: String? {
+        unidiffPatch ?? patch
+    }
+
+    /// Parse additions count from unified diff
+    public var additions: Int {
+        guard let content = patchContent else { return 0 }
+        return content.components(separatedBy: "\n")
+            .filter { $0.hasPrefix("+") && !$0.hasPrefix("+++") }
+            .count
+    }
+
+    /// Parse deletions count from unified diff
+    public var deletions: Int {
+        guard let content = patchContent else { return 0 }
+        return content.components(separatedBy: "\n")
+            .filter { $0.hasPrefix("-") && !$0.hasPrefix("---") }
+            .count
+    }
+
+    /// Extract changed file paths from unified diff
+    public var changedFiles: [String] {
+        guard let content = patchContent else { return [] }
+        var files: [String] = []
+        for line in content.components(separatedBy: "\n") {
+            // Match lines like "+++ b/src/cli/explain.ts"
+            if line.hasPrefix("+++ b/") {
+                let path = String(line.dropFirst(6))
+                files.append(path)
+            }
+        }
+        return files
+    }
+
+    /// Number of files changed
+    public var filesChanged: Int {
+        changedFiles.count
+    }
 }
 
 /// Session completed content
