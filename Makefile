@@ -11,12 +11,15 @@ PRODUCT_NAME     := Jools
 SCHEME           := Jools
 JOOLSKIT_PATH    := JoolsKit
 PROJECT          := $(PRODUCT_NAME).xcodeproj
-SIMULATOR        := iPhone 17 Pro
+# Simulator name - override with: make sim-run SIMULATOR="iPhone 17 Pro Max"
+SIMULATOR        ?= iPhone 17 Pro
 DESTINATION      := platform=iOS Simulator,name=$(SIMULATOR)
 DEVICE_DEST      := generic/platform=iOS
 DERIVED_DATA     := $(HOME)/Library/Developer/Xcode/DerivedData
 BUILD_DIR        := .build
 COVERAGE_DIR     := $(BUILD_DIR)/coverage
+# Screenshot output path - override with: make sim-screenshot SCREENSHOT=/path/to/file.png
+SCREENSHOT       ?= /tmp/jools_screenshot.png
 
 # Tools
 BREW             := $(shell command -v brew 2>/dev/null)
@@ -60,7 +63,8 @@ HOOK_ICON        := 🪝
         kit-build kit-test kit-clean kit-update \
         ci pre-push hooks-install hooks-uninstall \
         status diff log \
-        sim-list sim-boot sim-build sim-run sim-install sim-launch sim-kill sim-logs sim-shutdown
+        sim-list sim-boot sim-build sim-run sim-install sim-launch sim-kill sim-logs sim-shutdown \
+        sim-reload sim-screenshot
 
 .DEFAULT_GOAL := help
 
@@ -451,3 +455,10 @@ sim-shutdown: ## Shutdown all simulators
 	@echo "$(BOLD)Shutting down simulators...$(RESET)"
 	@xcrun simctl shutdown all
 	@echo "$(GREEN)$(CHECK) All simulators shut down$(RESET)"
+
+sim-reload: sim-kill sim-install sim-launch ## Quick reload (kill + install + launch, no rebuild)
+
+sim-screenshot: ## Take simulator screenshot (override path: SCREENSHOT=/path/to/file.png)
+	@echo "$(BOLD)📸 Taking screenshot...$(RESET)"
+	@xcrun simctl io booted screenshot "$(SCREENSHOT)"
+	@echo "$(GREEN)$(CHECK) Screenshot saved to $(SCREENSHOT)$(RESET)"
