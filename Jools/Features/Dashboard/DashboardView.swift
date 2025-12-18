@@ -126,34 +126,47 @@ struct SourcesSection: View {
 
 struct SourceCard: View {
     let source: SourceEntity
+    @State private var showCreateSession = false
 
     var body: some View {
-        HStack(spacing: JoolsSpacing.sm) {
-            Image(systemName: "folder.fill")
-                .font(.title2)
-                .foregroundStyle(Color.joolsAccent)
-                .frame(width: 36, height: 36)
-                .background(Color.joolsAccent.opacity(0.15))
-                .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.sm))
+        Button {
+            showCreateSession = true
+        } label: {
+            HStack(spacing: JoolsSpacing.sm) {
+                Image(systemName: "folder.fill")
+                    .font(.title2)
+                    .foregroundStyle(Color.joolsAccent)
+                    .frame(width: 36, height: 36)
+                    .background(Color.joolsAccent.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.sm))
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(source.repo)
-                    .font(.joolsBody)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(source.repo)
+                        .font(.joolsBody)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
 
-                Text(source.owner)
-                    .font(.joolsCaption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    Text(source.owner)
+                        .font(.joolsCaption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "plus.circle")
+                    .font(.title3)
+                    .foregroundStyle(Color.joolsAccent.opacity(0.6))
             }
-
-            Spacer(minLength: 0)
+            .padding(JoolsSpacing.sm)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.joolsSurface)
+            .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.md))
         }
-        .padding(JoolsSpacing.sm)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.joolsSurface)
-        .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.md))
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showCreateSession) {
+            CreateSessionView(source: source)
+        }
     }
 }
 
