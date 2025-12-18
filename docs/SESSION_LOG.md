@@ -227,9 +227,187 @@
 - **Message:** `fix: Sessions API URL encoding and Dashboard grid layout`
 
 ### Next Steps
-- [ ] Implement activities fetching in ChatView
-- [ ] Wire up PollingService for live session updates
+- [x] Implement activities fetching in ChatView
+- [x] Wire up PollingService for live session updates
 - [ ] Add create session functionality
+
+---
+
+## Session 5: Activities & Chat Integration
+**Date:** 2025-12-17
+**Agent:** Claude (Opus 4.5)
+**Status:** Completed
+
+### Implementation Completed
+- [x] **ChatViewModel API Integration:**
+  - Added `configure()` method to inject dependencies (APIClient, ModelContext, PollingService)
+  - Implemented `loadActivities()` for initial fetch on view appear
+  - Implemented `PollingServiceDelegate` for live updates
+  - Syncs activities to SwiftData with upsert logic
+  - Excludes optimistic messages from sync to avoid duplicates
+- [x] **Optimistic Message Sending:**
+  - Creates local `ActivityEntity` immediately on send
+  - Marks as `pending` status while API call in flight
+  - Updates to `sent` on success, `failed` on error
+  - Shows appropriate status icons in UI
+- [x] **Plan Actions:**
+  - `approvePlan()` calls API and triggers immediate poll
+  - `rejectPlan()` sends revision request message
+  - Both show haptic feedback
+- [x] **ChatView Enhancements:**
+  - Loading state while fetching activities
+  - Empty state when no messages yet
+  - Error alert for API failures
+  - Auto-scroll to bottom on new messages
+  - Send on keyboard submit
+  - `PlanApprovedView` for approved plan indicator
+- [x] **Build Verified:** Successfully builds on iPhone 17 Pro (iOS 26.1)
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `ChatViewModel.swift` | Complete rewrite with API integration |
+| `ChatView.swift` | Added configure(), loading/empty states, error handling |
+
+### Architecture Notes
+- `ChatViewModel` implements `PollingServiceDelegate` to receive live updates
+- Activities synced to SwiftData allow offline viewing of conversation history
+- Optimistic UI pattern provides instant feedback on message send
+
+### Next Steps
+- [x] Add create session functionality (CreateSessionView)
+- [ ] Implement session search/filtering
+- [ ] Test end-to-end with real Jules session
+
+---
+
+## Session 6: Create Session Feature
+**Date:** 2025-12-17 19:14
+**Agent:** Claude (Opus 4.5)
+**Status:** Completed
+
+### Implementation Completed
+- [x] **CreateSessionViewModel:** Full state management for session creation
+  - `SessionMode` enum: `interactivePlan`, `review`, `start`
+  - Maps to API's `requirePlanApproval` field
+  - Branch selection, prompt input, auto-PR toggle
+  - Calls `apiClient.createSession()` and saves to SwiftData
+- [x] **CreateSessionView:** Complete UI matching Jules web
+  - SourceHeader: Shows repo name
+  - PromptInput: Multi-line TextField with placeholder
+  - OptionsBar: Branch picker menu, session mode button
+  - AdvancedOptionsSection: Title override, auto-PR toggle
+  - BottomActionBar: Mode summary + submit button
+  - SessionModeSheet: List selector for session modes
+  - LoadingOverlay: Shows "Creating session..." during API call
+- [x] **DashboardView Integration:**
+  - SourceCard now shows CreateSessionView as sheet on tap
+  - Plus icon indicates tappable action
+- [x] **Navigation Flow:**
+  - After session creation, navigates to ChatView within sheet
+  - Uses `navigationDestination(item:)` binding
+
+### Files Created
+| File | Description |
+|------|-------------|
+| `CreateSessionViewModel.swift` | Session creation state and API logic |
+| `CreateSessionView.swift` | Full create session UI with all components |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `DashboardView.swift` | Added sheet presentation to SourceCard |
+
+### Session Mode Mapping
+| Mode | Title | API `requirePlanApproval` |
+|------|-------|---------------------------|
+| `interactivePlan` | Interactive plan | `true` |
+| `review` | Review | `true` |
+| `start` | Start | `false` |
+
+### Next Steps
+- [ ] Test create session flow end-to-end with real API
+- [ ] Implement session search/filtering in SessionsListView
+- [ ] Add pull-to-refresh on Dashboard
+
+---
+
+## Session 7: Chat UI Enhancements & Command Display
+**Date:** 2025-12-18 00:01
+**Agent:** Claude (Opus 4.5)
+**Status:** Completed
+
+### Issues Addressed
+1. Session UI felt unresponsive - no feedback after posting a prompt
+2. Plan steps showed only "Step 1", "Step 2" instead of actual titles
+3. Duplicate messages appearing in chat
+4. UI "bobbing" up and down during scroll
+5. Commands executed by Jules not displayed (web UI shows `Ran: ls -F src/`)
+6. Failed commands showed green checkmark instead of red X
+7. "Unknown" state shown instead of "Starting" or "Working"
+
+### Implementation Completed
+
+#### Session Status Banner
+- [x] Created `SessionStatusBanner.swift` - contextual status display
+  - RUNNING/IN_PROGRESS: "Jules is working..." with spinner and "Live" indicator
+  - QUEUED: "Session queued, starting soon..."
+  - AWAITING_USER_INPUT: "Jules needs your input to continue"
+  - AWAITING_PLAN_APPROVAL: "Review and approve the plan"
+  - COMPLETED: "Session completed" (green)
+  - FAILED: "Session encountered an error" (red)
+  - UNSPECIFIED: "Jules is starting up..."
+- [x] Added message sent confirmation toast (auto-dismisses after 2s)
+- [x] Added polling state tracking via Combine
+
+#### Command Execution Display
+- [x] **DTOs Updated:**
+  - Added `ArtifactDTO`, `BashOutputDTO`, `ChangeSetDTO`, `GitPatchDTO`
+  - Added `artifacts` array to `ActivityDTO`
+  - Added `progressTitle`, `progressDescription` to `ActivityContentDTO`
+  - Added `exitCode` field and `isLikelyFailure` computed property
+- [x] **ProgressUpdateView Redesigned:**
+  - Shows `CommandCardView` for bash commands with expandable output
+  - Uses `exitCode` for failure detection (red X for non-zero codes)
+  - Falls back to output pattern matching for failure inference
+  - Shows `WorkingCard` for progress messages with title/description
+
+#### State & Bug Fixes
+- [x] **Session State Fix:** API returns `IN_PROGRESS` not `RUNNING`
+  - Added `inProgress = "IN_PROGRESS"` case to `SessionState` enum
+  - Updated `displayName`, `isActive`, and all switch statements
+- [x] **Duplicate Messages:** Fixed optimistic message deduplication in sync
+- [x] **UI Bobbing:** Removed avatar bobbing animation, removed `.defaultScrollAnchor(.bottom)`
+- [x] **Plan Steps:** Fixed to use `step.title` instead of `step.description`
+
+### Files Created
+| File | Description |
+|------|-------------|
+| `SessionStatusBanner.swift` | Contextual session status banner |
+| `JulesAvatarView.swift` | Jules avatar and typing indicator views |
+| `PlanCardView.swift` | Plan display with expandable steps |
+| `CommandCardView.swift` | Command execution cards with output |
+| `CompletionCardView.swift` | Session completion summary card |
+| `FilePillView.swift` | File reference pill components |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `DTOs.swift` | Artifacts support, IN_PROGRESS state, failure detection |
+| `Entities.swift` | `bashCommands` and `hasToolExecutions` computed properties |
+| `ChatView.swift` | Status banner, WorkingCard, command display, state fixes |
+| `ChatViewModel.swift` | Polling state tracking, message confirmation |
+
+### API Discoveries
+- Session state uses `IN_PROGRESS` (not `RUNNING` as initially assumed)
+- Bash outputs include `exitCode` field for proper failure detection
+- `progressUpdated` activities have `title` and `description` fields
+- Tool executions stored in `artifacts[].bashOutput` within activities
+
+### Next Steps
+- [ ] Test end-to-end with real Jules session
+- [ ] Implement session search/filtering
+- [ ] Add file changes display (changeSet artifacts)
 
 ---
 
