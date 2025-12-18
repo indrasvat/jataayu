@@ -411,6 +411,31 @@
 
 ---
 
+## Session 8: Usage Display Fix
+**Date:** 2025-12-18
+**Agent:** Claude (Opus 4.5)
+**Status:** Completed
+
+### Issue Addressed
+Dashboard "Today's Usage" card showed hardcoded "0/15" instead of actual session count.
+
+### Implementation
+- [x] Updated `DashboardViewModel` to count sessions created today from API response
+- [x] Added `countSessionsCreatedToday()` method filtering by session create time
+- [x] Added `dailyTaskLimit` property defaulting to 100 (Jules Pro tier)
+- [x] Note: Jules API doesn't expose usage limits - using local default
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `DashboardViewModel.swift` | Count sessions created today, add daily limit constant |
+| `DashboardView.swift` | Use correct ViewModel property names |
+
+### API Note
+The Jules API doesn't expose a usage/quota endpoint. The workaround counts sessions created today from the sessions list response. Daily limit is set to 100 (Pro tier default).
+
+---
+
 ## Useful Commands Reference
 
 ### Environment Info
