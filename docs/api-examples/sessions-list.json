@@ -1,0 +1,31 @@
+{
+  "_comment": "Sessions list - from GET /v1alpha/sessions",
+  "sessions": [
+    {
+      "name": "sessions/8249033954077352997",
+      "title": "How exactly is file renaming/fixing implemented in",
+      "createTime": "2025-12-18T07:37:32.918664411Z",
+      "updateTime": "2025-12-18T08:04:46.379318Z",
+      "state": "COMPLETED",
+      "sourceContext": {
+        "source": "sources/github/indrasvat/namefix",
+        "githubRepoContext": {
+          "startingBranch": "main"
+        }
+      },
+      "prompt": "How exactly is file renaming/fixing implemented in this app? What is the main algorithm?",
+      "url": "https://jules.google.com/session/8249033954077352997",
+      "id": "8249033954077352997",
+      "outputs": [
+        {
+          "pullRequest": {
+            "url": "https://github.com/indrasvat/namefix/pull/14",
+            "title": "Add `explain` command to CLI",
+            "description": "This change introduces a new `explain` command..."
+          }
+        }
+      ]
+    }
+  ],
+  "nextPageToken": "1766042295694496248"
+}

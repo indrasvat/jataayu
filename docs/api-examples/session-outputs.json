@@ -1,0 +1,12 @@
+{
+  "_comment": "Session outputs - from GET /v1alpha/sessions/{sessionId}",
+  "outputs": [
+    {
+      "pullRequest": {
+        "url": "https://github.com/indrasvat/namefix/pull/14",
+        "title": "Add `explain` command to CLI",
+        "description": "This change introduces a new `explain` command to the command-line interface. When run, this command prints a concise, step-by-step summary of the application's file renaming algorithm. This serves as a convenient, built-in documentation feature for users who want to understand the core logic of the tool without needing to inspect the source code.\n\n---\n*PR created automatically by Jules for task [8249033954077352997](https://jules.google.com/task/8249033954077352997) started by @indrasvat*"
+      }
+    }
+  ]
+}
