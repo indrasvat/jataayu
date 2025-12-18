@@ -16,8 +16,8 @@ struct DashboardView: View {
                 VStack(spacing: JoolsSpacing.lg) {
                     // Usage Stats Card
                     UsageStatsCard(
-                        tasksUsed: viewModel.tasksUsed,
-                        tasksLimit: viewModel.tasksLimit
+                        tasksUsed: viewModel.tasksUsedToday,
+                        tasksLimit: viewModel.dailyTaskLimit
                     )
 
                     // Sources Section

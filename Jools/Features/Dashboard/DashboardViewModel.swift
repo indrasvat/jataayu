@@ -6,9 +6,12 @@ import JoolsKit
 @MainActor
 final class DashboardViewModel: ObservableObject {
     @Published var isLoading: Bool = false
-    @Published var tasksUsed: Int = 0
-    @Published var tasksLimit: Int = 15  // Default to free tier
+    @Published var tasksUsedToday: Int = 0
     @Published var errorMessage: String?
+
+    /// Daily task limit (Jules Pro = 100, Free = 15)
+    /// Note: The Jules API doesn't expose this, so we default to Pro tier
+    let dailyTaskLimit: Int = 100
 
     func refresh(using dependencies: AppDependency, modelContext: ModelContext) {
         Task {
@@ -30,6 +33,9 @@ final class DashboardViewModel: ObservableObject {
             let sessionsResponse = try await dependencies.apiClient.listSessions()
             syncSessions(sessionsResponse.allItems, to: modelContext)
 
+            // Count sessions created today
+            tasksUsedToday = countSessionsCreatedToday(sessionsResponse.allItems)
+
             // Save changes
             try modelContext.save()
 
@@ -37,6 +43,15 @@ final class DashboardViewModel: ObservableObject {
             errorMessage = error.localizedDescription
             print("Dashboard refresh failed: \(error)")
         }
+    }
+
+    private func countSessionsCreatedToday(_ sessions: [SessionDTO]) -> Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return sessions.filter { session in
+            guard let createTime = session.createTime else { return false }
+            return createTime >= today
+        }.count
     }
 
     // MARK: - Private Sync Methods
