@@ -108,6 +108,12 @@ struct SettingsView: View {
                         Label("Delete All Data", systemImage: "trash")
                     }
                 }
+
+                Section {
+                    MadeWithJoolsFooter(style: .list)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
             }
             .navigationTitle("Settings")
             .navigationDestination(for: SettingsDestination.self) { destination in
@@ -185,6 +191,12 @@ struct AppearanceSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            Section {
+                MadeWithJoolsFooter(style: .list)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
         }
         .navigationTitle("Appearance")
     }
@@ -199,6 +211,12 @@ struct NotificationSettingsView: View {
             Section("Session Notifications") {
                 Toggle("Session Completed", isOn: $notifyOnComplete)
                 Toggle("Needs Your Input", isOn: $notifyOnNeedsInput)
+            }
+
+            Section {
+                MadeWithJoolsFooter(style: .list)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
             }
         }
         .navigationTitle("Notifications")

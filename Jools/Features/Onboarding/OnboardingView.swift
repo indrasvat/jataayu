@@ -300,48 +300,17 @@ struct AppIconView: View {
     @State private var isPulsing = false
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 24)
-                .fill(LinearGradient.joolsAccentGradient)
-                .frame(width: 100, height: 100)
-                .shadow(color: .joolsAccent.opacity(0.5), radius: isPulsing ? 30 : 20)
-
-            LayersIcon()
-                .stroke(.white, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-                .frame(width: 50, height: 50)
+        PixelJoolsBadge(cornerRadius: 24) {
+            PixelJoolsMark()
+                .padding(20)
         }
+        .frame(width: 100, height: 100)
+        .shadow(color: .joolsAccent.opacity(0.5), radius: isPulsing ? 30 : 20)
         .onAppear {
             withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
                 isPulsing = true
             }
         }
-    }
-}
-
-struct LayersIcon: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let w = rect.width
-        let h = rect.height
-
-        // Top layer (diamond/rhombus)
-        path.move(to: CGPoint(x: w * 0.5, y: 0))
-        path.addLine(to: CGPoint(x: 0, y: h * 0.25))
-        path.addLine(to: CGPoint(x: w * 0.5, y: h * 0.5))
-        path.addLine(to: CGPoint(x: w, y: h * 0.25))
-        path.closeSubpath()
-
-        // Middle layer
-        path.move(to: CGPoint(x: 0, y: h * 0.5))
-        path.addLine(to: CGPoint(x: w * 0.5, y: h * 0.75))
-        path.addLine(to: CGPoint(x: w, y: h * 0.5))
-
-        // Bottom layer
-        path.move(to: CGPoint(x: 0, y: h * 0.75))
-        path.addLine(to: CGPoint(x: w * 0.5, y: h))
-        path.addLine(to: CGPoint(x: w, y: h * 0.75))
-
-        return path
     }
 }
 

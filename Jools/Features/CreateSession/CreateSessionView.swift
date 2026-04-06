@@ -50,6 +50,8 @@ struct CreateSessionView: View {
 
                         // Advanced options (collapsed)
                         AdvancedOptionsSection(viewModel: viewModel)
+
+                        MadeWithJoolsFooter()
                     }
                     .padding()
                 }

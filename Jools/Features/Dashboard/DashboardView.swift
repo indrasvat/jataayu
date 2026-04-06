@@ -49,6 +49,9 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: JoolsSpacing.lg) {
+                    HomeBrandHeader()
+                        .accessibilityIdentifier("home.brand")
+
                     UsageStatsCard(
                         tasksUsed: viewModel.tasksUsedToday,
                         tasksLimit: viewModel.dailyTaskLimit
@@ -118,12 +121,15 @@ struct DashboardView: View {
                             RecentSessionsSection(sessions: Array(sessions.prefix(5)))
                                 .accessibilityIdentifier("home.section.recentSessions")
                         }
+
+                        MadeWithJoolsFooter()
                     }
                 }
                 .padding()
             }
             .background(Color.joolsBackground)
-            .navigationTitle("Jools")
+            .navigationTitle("Home")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if let selectedSource {
@@ -205,6 +211,22 @@ private struct ScheduledDraft: Identifiable {
 
     var id: String {
         "\(source.id)-\(template.id)"
+    }
+}
+
+private struct HomeBrandHeader: View {
+    var body: some View {
+        HStack(alignment: .center) {
+            PixelJoolsWordmark(
+                iconSize: 26,
+                titleFont: .system(size: 22, weight: .bold, design: .rounded),
+                subtitle: "Your pocket control plane",
+                titleTracking: -0.6
+            )
+
+            Spacer()
+        }
+        .padding(.top, JoolsSpacing.xs)
     }
 }
 
@@ -622,6 +644,8 @@ struct SessionRow: View {
     let session: SessionEntity
 
     var body: some View {
+        let displayState = session.effectiveState
+
         NavigationLink {
             ChatView(session: session)
         } label: {
@@ -640,7 +664,7 @@ struct SessionRow: View {
 
                 Spacer()
 
-                SessionStateBadge(state: session.state)
+                SessionStateBadge(state: displayState)
             }
             .padding()
             .background(Color.joolsSurface)

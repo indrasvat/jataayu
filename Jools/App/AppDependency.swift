@@ -116,11 +116,26 @@ final class AppDependency: ObservableObject {
             context.insert(source)
         }
 
+        let primaryTitle: String
+        let primaryState: SessionState
+
+        switch scenario {
+        case "stale-session":
+            primaryTitle = "UI Test Stale Session"
+            primaryState = .inProgress
+        case "starting-needs-input":
+            primaryTitle = "UI Test Starting Session"
+            primaryState = .unspecified
+        default:
+            primaryTitle = "UI Test Running Session"
+            primaryState = .awaitingPlanApproval
+        }
+
         let session = SessionEntity(
             id: "ui-session-\(scenario)",
-            title: scenario == "stale-session" ? "UI Test Stale Session" : "UI Test Running Session",
+            title: primaryTitle,
             prompt: "Validate the session recovery UI",
-            state: scenario == "stale-session" ? .inProgress : .awaitingPlanApproval,
+            state: primaryState,
             sourceId: "github/indrasvat/hews",
             sourceBranch: "main",
             automationMode: .autoCreatePR,
@@ -154,6 +169,21 @@ final class AppDependency: ObservableObject {
     }
 
     private func uiTestActivities(for scenario: String) -> [ActivityEntity] {
+        if scenario == "starting-needs-input" {
+            return [
+                ActivityEntity(
+                    id: "ui-agent-question-\(scenario)",
+                    type: .agentMessaged,
+                    createdAt: Date().addingTimeInterval(-30),
+                    contentJSON: (try? JSONEncoder().encode(
+                        ActivityContentDTO(
+                            message: "Before I proceed, could you clarify whether you want the summary directly in chat or written to a file?"
+                        )
+                    )) ?? Data()
+                )
+            ]
+        }
+
         let planContent = ActivityContentDTO(
             plan: PlanDTO(
                 id: "plan-ui",

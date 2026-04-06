@@ -32,6 +32,14 @@ struct SessionsListView: View {
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("session.row.\(session.id)")
                 }
+
+                if !sessions.isEmpty || !searchText.isEmpty {
+                    Section {
+                        MadeWithJoolsFooter(style: .list)
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                    }
+                }
             }
             .listStyle(.plain)
             .navigationTitle("Sessions")
@@ -110,6 +118,8 @@ struct SessionListRow: View {
     let session: SessionEntity
 
     var body: some View {
+        let displayState = session.effectiveState
+
         VStack(alignment: .leading, spacing: JoolsSpacing.xs) {
             HStack {
                 Text(session.title)
@@ -118,7 +128,7 @@ struct SessionListRow: View {
 
                 Spacer()
 
-                SessionStateBadge(state: session.state)
+                SessionStateBadge(state: displayState)
             }
 
             Text(session.prompt)

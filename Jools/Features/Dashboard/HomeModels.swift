@@ -131,7 +131,7 @@ enum HomeContentBuilder {
     ) -> [HomeAttentionItem] {
         sessions.compactMap { session in
             let repoName = sourceName(for: session, sourcesByID: sourcesByID)
-            switch session.state {
+            switch session.effectiveState {
             case .awaitingPlanApproval:
                 return HomeAttentionItem(
                     id: "attention-\(session.id)",
@@ -160,6 +160,15 @@ enum HomeContentBuilder {
                     style: .error
                 )
             case .inProgress:
+                return HomeAttentionItem(
+                    id: "attention-\(session.id)",
+                    title: "Work in progress",
+                    subtitle: "\(repoName) is actively running in the background.",
+                    actionTitle: "Check status",
+                    sessionID: session.id,
+                    style: .info
+                )
+            case .running:
                 return HomeAttentionItem(
                     id: "attention-\(session.id)",
                     title: "Work in progress",

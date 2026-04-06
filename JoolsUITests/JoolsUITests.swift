@@ -39,8 +39,9 @@ final class JoolsUITests: XCTestCase {
         scheduleButton.tap()
 
         XCTAssertTrue(app.navigationBars["Scheduled Task"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Web handoff required"].exists)
+        XCTAssertTrue(app.staticTexts["Continue in Jules"].exists)
         XCTAssertTrue(app.buttons["scheduled.copyPrompt"].exists)
+        XCTAssertTrue(app.buttons["scheduled.continue"].exists)
     }
 
     @MainActor
@@ -67,13 +68,29 @@ final class JoolsUITests: XCTestCase {
 
         openSession(named: "UI Test Running Session", in: app)
 
-        XCTAssertTrue(app.staticTexts["Review and approve the plan"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Jules is working"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Provide the summary to the user"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.scrollViews["chat.scroll"].exists || app.otherElements["chat.scroll"].exists)
         XCTAssertTrue(app.textFields["chat.input"].exists || app.textViews["chat.input"].exists)
         XCTAssertTrue(app.buttons["chat.send"].exists)
         XCTAssertTrue(app.buttons["chat.refresh"].exists)
-        XCTAssertTrue(staticText(containing: "Last updated", in: app).waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            staticText(containing: "Updated", in: app).waitForExistence(timeout: 5) ||
+            staticText(containing: "Pull to refresh", in: app).exists
+        )
+    }
+
+    @MainActor
+    func testStartingSessionUsesTimelineDerivedNeedsInputState() throws {
+        let app = makeApp(scenario: "starting-needs-input")
+        app.launch()
+
+        openSessionsTab(in: app)
+        openSession(named: "UI Test Starting Session", in: app)
+
+        XCTAssertTrue(app.staticTexts["Jules needs your input"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Open the latest Jules message below and reply to continue."].exists)
+        XCTAssertFalse(app.staticTexts["Jules is starting up"].exists)
     }
 
     @MainActor

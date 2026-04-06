@@ -265,3 +265,140 @@ final class ActivityEntity {
         gitPatch?.changedFiles ?? []
     }
 }
+
+enum SessionDisplayState: Equatable {
+    case starting
+    case queued
+    case working
+    case awaitingPlanApproval
+    case awaitingUserInput
+    case completed
+    case failed
+    case cancelled
+
+    var sessionState: SessionState {
+        switch self {
+        case .starting:
+            return .unspecified
+        case .queued:
+            return .queued
+        case .working:
+            return .inProgress
+        case .awaitingPlanApproval:
+            return .awaitingPlanApproval
+        case .awaitingUserInput:
+            return .awaitingUserInput
+        case .completed:
+            return .completed
+        case .failed:
+            return .failed
+        case .cancelled:
+            return .cancelled
+        }
+    }
+}
+
+enum SessionStateMachine {
+    static func resolve(apiState: SessionState, activities: [ActivityEntity]) -> SessionDisplayState {
+        let persistedActivities = activities
+            .filter { !$0.isOptimistic }
+            .sorted { $0.createdAt < $1.createdAt }
+
+        if persistedActivities.isEmpty, activities.contains(where: { $0.isOptimistic && $0.type == .userMessaged }) {
+            return .working
+        }
+
+        return persistedActivities.reduce(initialState(for: apiState)) { state, activity in
+            transition(from: state, with: activity)
+        }
+    }
+
+    private static func initialState(for apiState: SessionState) -> SessionDisplayState {
+        switch apiState {
+        case .unspecified:
+            return .starting
+        case .queued:
+            return .queued
+        case .running, .inProgress:
+            return .working
+        case .awaitingPlanApproval:
+            return .awaitingPlanApproval
+        case .awaitingUserInput:
+            return .awaitingUserInput
+        case .completed:
+            return .completed
+        case .failed:
+            return .failed
+        case .cancelled:
+            return .cancelled
+        }
+    }
+
+    private static func transition(from state: SessionDisplayState, with activity: ActivityEntity) -> SessionDisplayState {
+        switch activity.type {
+        case .sessionCompleted:
+            return .completed
+        case .sessionFailed:
+            return .failed
+        case .planGenerated:
+            return .awaitingPlanApproval
+        case .planApproved, .progressUpdated, .userMessaged:
+            return state == .cancelled ? .cancelled : .working
+        case .agentMessaged:
+            if state == .completed || state == .failed || state == .cancelled {
+                return state
+            }
+
+            if requestsUserInput(message: activity.messageContent) {
+                return .awaitingUserInput
+            }
+
+            switch state {
+            case .starting, .queued:
+                return .working
+            default:
+                return state
+            }
+        case .unknown:
+            return state
+        }
+    }
+
+    private static func requestsUserInput(message: String?) -> Bool {
+        guard let message else { return false }
+        let normalizedMessage = message.lowercased()
+
+        let phrases = [
+            "please clarify",
+            "could you",
+            "can you confirm",
+            "would you like",
+            "which would you prefer",
+            "let me know",
+            "waiting for your input",
+            "need your input",
+            "before i proceed",
+            "reply directly in chat",
+        ]
+
+        if phrases.contains(where: normalizedMessage.contains) {
+            return true
+        }
+
+        if normalizedMessage.filter({ $0 == "?" }).count >= 1 {
+            return true
+        }
+
+        return normalizedMessage.contains("1.") && normalizedMessage.contains("2.")
+    }
+}
+
+extension SessionEntity {
+    var effectiveDisplayState: SessionDisplayState {
+        SessionStateMachine.resolve(apiState: state, activities: activities)
+    }
+
+    var effectiveState: SessionState {
+        effectiveDisplayState.sessionState
+    }
+}

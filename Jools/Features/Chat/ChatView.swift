@@ -23,13 +23,15 @@ struct ChatView: View {
     }
 
     var body: some View {
+        let effectiveState = session.effectiveState
+
         VStack(spacing: 0) {
             // Chat header
-            ChatHeader(session: session)
+            ChatHeader(session: session, displayState: effectiveState)
 
             // Status banner
             SessionStatusBanner(
-                state: session.state,
+                state: effectiveState,
                 syncState: viewModel.syncState,
                 isPolling: viewModel.isPolling,
                 lastUpdatedAt: viewModel.lastSuccessfulSyncAt,
@@ -59,6 +61,8 @@ struct ChatView: View {
                                 TypingIndicatorView()
                                     .id("typing-indicator")
                             }
+
+                            MadeWithJoolsFooter()
                         }
                         .padding(.vertical)
                     }
@@ -85,7 +89,7 @@ struct ChatView: View {
 
                 if !viewModel.isLoading && displayedActivities.isEmpty {
                     EmptyActivitiesView(
-                        state: session.state,
+                        state: effectiveState,
                         syncState: viewModel.syncState,
                         onRetry: {
                             Task {
@@ -183,7 +187,7 @@ struct ChatView: View {
     }
 
     private var currentStepTitle: String? {
-        switch session.state {
+        switch session.effectiveState {
         case .awaitingPlanApproval:
             return latestPlanStep?.title ?? "Review the generated plan"
         case .awaitingUserInput:
@@ -202,7 +206,7 @@ struct ChatView: View {
     }
 
     private var currentStepDescription: String? {
-        switch session.state {
+        switch session.effectiveState {
         case .awaitingPlanApproval:
             return latestPlanStep?.description
         case .awaitingUserInput:
@@ -215,7 +219,8 @@ struct ChatView: View {
     }
 
     private var showsTypingIndicator: Bool {
-        session.state == .running || session.state == .inProgress || session.state == .queued
+        let state = session.effectiveState
+        return state == .running || state == .inProgress || state == .queued
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy) {
@@ -277,6 +282,7 @@ struct EmptyActivitiesView: View {
 
 struct ChatHeader: View {
     let session: SessionEntity
+    let displayState: SessionState
 
     var body: some View {
         HStack {
@@ -286,7 +292,7 @@ struct ChatHeader: View {
                     .lineLimit(1)
 
                 HStack(spacing: JoolsSpacing.xs) {
-                    SessionStateBadge(state: session.state)
+                    SessionStateBadge(state: displayState)
                     Text("•")
                         .foregroundStyle(.secondary)
                     Text(session.sourceBranch)
