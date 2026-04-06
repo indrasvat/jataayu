@@ -81,3 +81,6 @@ artifacts/
 # Throwaway design exploration mocks (icon iterations, glyph variants).
 # Canonical screen mocks live one level up in docs/mocks/ and stay tracked.
 docs/mocks/explorations/
+
+# Codemap tooling state (per-machine context cache, not for sharing)
+.codemap/
