@@ -1,14 +1,19 @@
 {
-  "name": "sessions/1351893935901700478",
-  "title": "API Test Session",
+  "_comment": "Create session response for a repository-backed session",
+  "name": "sessions/2039485720394857203",
+  "id": "2039485720394857203",
+  "prompt": "Add regression tests for the OAuth refresh flow.",
+  "title": "Add OAuth refresh tests",
+  "state": "QUEUED",
+  "url": "https://jules.google.com/session/2039485720394857203",
   "sourceContext": {
-    "source": "sources/github/indrasvat/hews",
+    "source": "sources/github/indrasvat/jools",
     "githubRepoContext": {
       "startingBranch": "main"
     }
   },
-  "prompt": "API test - list files in root directory",
-  "url": "https://jules.google.com/session/1351893935901700478",
+  "automationMode": "AUTO_CREATE_PR",
   "requirePlanApproval": true,
-  "id": "1351893935901700478"
+  "createTime": "2026-03-18T10:22:14.381921Z",
+  "updateTime": "2026-03-18T10:22:14.381921Z"
 }

@@ -2,29 +2,42 @@
   "_comment": "Sessions list - from GET /v1alpha/sessions",
   "sessions": [
     {
-      "name": "sessions/8249033954077352997",
-      "title": "How exactly is file renaming/fixing implemented in",
-      "createTime": "2025-12-18T07:37:32.918664411Z",
-      "updateTime": "2025-12-18T08:04:46.379318Z",
+      "name": "sessions/14365396085129174100",
+      "id": "14365396085129174100",
+      "title": "Add incremental activity polling",
+      "createTime": "2026-02-14T13:40:44.485451923Z",
+      "updateTime": "2026-02-14T14:36:42.937953Z",
       "state": "COMPLETED",
       "sourceContext": {
-        "source": "sources/github/indrasvat/namefix",
+        "source": "sources/github/indrasvat/jools",
         "githubRepoContext": {
           "startingBranch": "main"
         }
       },
-      "prompt": "How exactly is file renaming/fixing implemented in this app? What is the main algorithm?",
-      "url": "https://jules.google.com/session/8249033954077352997",
-      "id": "8249033954077352997",
+      "prompt": "Refactor the polling client to support incremental activity fetching using the createTime cursor.",
+      "url": "https://jules.google.com/session/14365396085129174100",
+      "automationMode": "AUTO_CREATE_PR",
+      "requirePlanApproval": false,
       "outputs": [
         {
           "pullRequest": {
-            "url": "https://github.com/indrasvat/namefix/pull/14",
-            "title": "Add `explain` command to CLI",
-            "description": "This change introduces a new `explain` command..."
+            "url": "https://github.com/indrasvat/jools/pull/42",
+            "title": "feat: add incremental activity polling",
+            "description": "Adds timestamp-based incremental activity polling, refreshes session state handling, and improves dashboard sync performance."
           }
         }
       ]
+    },
+    {
+      "name": "sessions/8123409871234098712",
+      "id": "8123409871234098712",
+      "title": "Generate HN digest script",
+      "createTime": "2026-03-01T09:15:00.102938Z",
+      "updateTime": "2026-03-01T09:18:44.882199Z",
+      "state": "QUEUED",
+      "prompt": "Write a Bun script that fetches the latest Hacker News top stories and saves a Markdown digest with links and scores.",
+      "url": "https://jules.google.com/session/8123409871234098712",
+      "requirePlanApproval": false
     }
   ],
   "nextPageToken": "1766042295694496248"
