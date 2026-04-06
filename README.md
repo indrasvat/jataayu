@@ -1,131 +1,127 @@
 # Jools
 
-iOS client for [Google's Jules](https://jules.google.com) coding agent.
+> **Jules, in your pocket.**
+> An unofficial iOS client for [Google's Jules](https://jules.google/) — the autonomous coding agent.
 
-## Requirements
+Jools is a SwiftUI app that turns the public [Jules REST API](https://jules.google/docs/api/reference/) into a calm, mobile-first control plane. Triage what needs you, approve plans, watch progress, follow up in chat, and check the PR — all from your phone, while the actual coding work happens on Jules's Cloud VMs in the background.
+
+This is **not** affiliated with Google. It's a side project that talks to the same public API any third-party Jules client would.
+
+---
+
+## Screens
+
+|                          |                          |                          |                          |
+|:------------------------:|:------------------------:|:------------------------:|:------------------------:|
+| <img src="docs/screenshots/01-onboarding-light.png" width="220"/> | <img src="docs/screenshots/02-home-light.png" width="220"/> | <img src="docs/screenshots/03-sessions-light.png" width="220"/> | <img src="docs/screenshots/04-plan-light.png" width="220"/> |
+| <img src="docs/screenshots/01-onboarding-dark.png" width="220"/> | <img src="docs/screenshots/02-home-dark.png" width="220"/> | <img src="docs/screenshots/03-sessions-dark.png" width="220"/> | <img src="docs/screenshots/04-plan-dark.png" width="220"/> |
+| **Onboarding**            | **Home**                  | **Sessions inbox**        | **Plan approval**         |
+
+Each screen reacts to your active system appearance and respects your in-app theme override (System / Light / Dark).
+
+---
+
+## What you can do today
+
+These are flows that work end-to-end against the real public Jules API:
+
+- **Connect** with your Jules API key (paste, or open Jules in an in-app Safari sheet and capture from clipboard)
+- **Browse** every connected GitHub source and every session you've created
+- **Triage** sessions from a Home screen that surfaces *Needs Attention* — anything waiting on your input or approval
+- **Open a session**, see the full conversation timeline (agent and user messages, plans, progress updates, completion summaries)
+- **Send follow-ups** with optimistic UI: your message appears instantly, then reconciles with the server activity once Jules acknowledges it
+- **Approve plans** before Jules starts coding — tap once and watch the state machine roll over to *Running*
+- **Watch live progress** via adaptive polling that uses the API's `createTime` filter for incremental fetches (with graceful fallback if the backend rejects it)
+- **See PR output** when Jules opens a pull request, including the title and description
+- **Schedule** repeating tasks via a native composer that hands off to the official Jules web flow when needed
+- **Switch themes** in Settings (System / Light / Dark) — preferences persist across app launches
+
+---
+
+## Current limitations
+
+Most of these are upstream constraints, not code we're avoiding writing.
+
+| Limitation | Why |
+|---|---|
+| No scheduled-task CRUD inside the app | The public Jules REST API doesn't expose scheduled-task endpoints; we hand off to the web UI |
+| No suggestions feed | Same — no public endpoint |
+| No CI Fixer / Render / MCP integration management | No public endpoints for any of these |
+| No per-file diff browser | Only diff stats and changed-file lists are exposed via `changeSet.gitPatch`; a real diff viewer is on the roadmap |
+| No media-artifact viewer | The DTOs we model only cover `bashOutput` and `changeSet` artifact types |
+| No repoless session creation | The API supports it, but the iOS create-session flow still requires a source — ([planned fix](docs/Jools_Implementation_Plan_v3.md)) |
+| Daily-usage shows `n/100` | Jules doesn't expose plan limits via the API; we assume Pro tier as a sane default |
+| No remote push notifications | Would require either a Jools-owned backend or upstream webhook support |
+
+For more, see [`docs/Remaining_Work_Plan_2026-04.md`](docs/Remaining_Work_Plan_2026-04.md) and [`docs/Jools_Implementation_Plan_v3.md`](docs/Jools_Implementation_Plan_v3.md).
+
+---
+
+## Building from source
+
+### Requirements
 
 - macOS Sequoia or later
 - Xcode 26.0+
 - iOS 26.0+ deployment target
 - [Homebrew](https://brew.sh)
 
-## Quick Start
+### One-shot setup
 
 ```bash
-# Clone the repository
 git clone git@github.com:indrasvat/jools.git
 cd jools
-
-# Run bootstrap (installs dependencies, hooks, generates project)
-./scripts/bootstrap
-
-# Open in Xcode
-make xcode
+./scripts/bootstrap     # installs SwiftLint, XcodeGen, Lefthook; resolves SPM; generates the Xcode project
+make xcode              # opens the generated project in Xcode
 ```
 
-## Development Setup
-
-### First Time Setup
-
-The bootstrap script handles everything automatically:
+### Common tasks
 
 ```bash
-./scripts/bootstrap
+make build      # build for simulator (debug)
+make test       # run JoolsKit + iOS app tests
+make lint       # SwiftLint
+make ci         # full CI pipeline (lint + JoolsKit + iOS build + tests)
 ```
 
-This will:
-1. Check for required tools (Xcode, Homebrew)
-2. Install dependencies (SwiftLint, XcodeGen, Lefthook)
-3. Install git hooks for pre-push CI checks
-4. Resolve Swift package dependencies
-5. Generate the Xcode project
+A pre-push git hook (Lefthook) runs lint and a JoolsKit build before every push.
 
-### Manual Setup
+### Getting an API key
 
-If you prefer manual setup:
+The first launch shows the Onboarding screen. Tap **Connect to Jules** to open the Jules API key page in an in-app browser, copy the key, and Jools will offer to use it when you return to the app. You can also paste it manually via **I already have a key**.
 
-```bash
-# Install dependencies
-brew install swiftlint xcodegen lefthook
+---
 
-# Install git hooks
-lefthook install
-
-# Generate Xcode project
-xcodegen generate
-
-# Open project
-open Jools.xcodeproj
-```
-
-## Available Commands
-
-Run `make help` to see all available commands:
+## Architecture at a glance
 
 ```
-make setup          Full project setup (deps + hooks + generate)
-make build          Build for simulator (debug)
-make test           Run all tests
-make lint           Run SwiftLint
-make ci             Run full CI pipeline
-make xcode          Open project in Xcode
+Jools/                        SwiftUI app
+├── App/                      App entry, dependency injection
+├── Core/
+│   ├── DesignSystem/         Pixel-J brand glyph, colors, typography, spacing, theme settings
+│   ├── Navigation/           Root view, tab coordinator
+│   └── Persistence/          SwiftData entities (Source, Session, Activity)
+└── Features/                 Onboarding, Dashboard, Chat, CreateSession, Settings
+
+JoolsKit/                     Swift package — pure networking + models
+└── Sources/JoolsKit/
+    ├── API/                  APIClient (actor), Endpoints, NetworkError
+    ├── Auth/                 KeychainManager
+    ├── Models/               Codable DTOs that mirror the Jules API
+    └── Polling/              PollingService — adaptive cadence, foreground/background aware
 ```
 
-## Project Structure
+- **MVVM** with `@MainActor` view models, no third-party reactive deps beyond Combine for a few publishers
+- **Swift 6** with strict concurrency
+- **Actors** for the API client and polling service
+- **SwiftData** for the local cache of sources, sessions, and activities
+- **SafariServices** for the OAuth-style key capture and the Jules web handoff flow
 
-```
-jools/
-├── Jools/                    # iOS app source
-│   ├── App/                  # App entry point, dependency injection
-│   ├── Core/                 # Shared infrastructure
-│   │   ├── DesignSystem/     # Colors, typography, spacing
-│   │   ├── Navigation/       # App coordinator, root view
-│   │   └── Persistence/      # SwiftData entities
-│   └── Features/             # Feature modules
-│       ├── Onboarding/       # API key entry
-│       ├── Dashboard/        # Sources & sessions list
-│       ├── Chat/             # Session chat interface
-│       └── Settings/         # App settings
-├── JoolsKit/                 # Core Swift package
-│   └── Sources/JoolsKit/
-│       ├── API/              # Network client, endpoints
-│       ├── Auth/             # Keychain manager
-│       ├── Models/           # DTOs
-│       └── Polling/          # Adaptive polling service
-├── JoolsTests/               # App unit tests
-├── scripts/                  # Development scripts
-│   └── bootstrap             # First-time setup script
-├── docs/                     # Documentation
-├── project.yml               # XcodeGen project spec
-├── lefthook.yml              # Git hooks configuration
-└── Makefile                  # Build automation
-```
+---
 
-## Git Hooks
+## Disclaimer
 
-This project uses [Lefthook](https://github.com/evilmartians/lefthook) for git hooks:
-
-- **pre-push**: Quick checks (lint + JoolsKit build) before every push
-
-For full CI validation, run `make ci` manually. The hooks are automatically installed when you run `./scripts/bootstrap` or `make setup`.
-
-## CI Pipeline
-
-The CI pipeline (`make ci`) runs:
-1. SwiftLint (code quality)
-2. JoolsKit build & tests
-3. iOS app build
-4. iOS app tests
-
-This runs automatically on every push via the pre-push hook.
-
-## Architecture
-
-- **MVVM+C**: Model-View-ViewModel with Coordinator pattern
-- **SwiftUI**: Declarative UI framework
-- **SwiftData**: Local persistence
-- **Async/Await**: Modern concurrency with actors
-- **Swift 6**: Strict concurrency checking enabled
+Jools is an independent open-source project. It is not built, sponsored, or endorsed by Google. *Jules* is a Google product and trademark; Jools talks to Jules's public REST API the same way any third-party client would. If you're looking for the official experience, that lives at [jules.google.com](https://jules.google.com).
 
 ## License
 
