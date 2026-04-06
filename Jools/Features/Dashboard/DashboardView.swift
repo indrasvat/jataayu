@@ -14,14 +14,17 @@ struct DashboardView: View {
     @State private var scheduledDraft: ScheduledDraft?
 
     private var sourcesByID: [String: SourceEntity] {
-        Dictionary(
-            uniqueKeysWithValues: sources.flatMap { source in
-                [
-                    (source.id, source),
-                    ("sources/\(source.id)", source),
-                ]
-            }
-        )
+        // Sessions reference their source by either the bare id, the
+        // synthesized `sources/<id>` form, or the opaque resource name
+        // returned by the API — index all three so attention lookups
+        // hit regardless of which form the server returned.
+        var index: [String: SourceEntity] = [:]
+        for source in sources {
+            index[source.id] = source
+            index["sources/\(source.id)"] = source
+            index[source.name] = source
+        }
+        return index
     }
 
     private var selectedSource: SourceEntity? {

@@ -7,6 +7,11 @@ import JoolsKit
 @Model
 final class SourceEntity {
     @Attribute(.unique) var id: String
+    /// The full opaque resource name returned by the Jules API
+    /// (e.g. `sources/github/indrasvat/namefix`). The API treats this
+    /// as the canonical reference; clients must not synthesize it.
+    /// Older app versions had `name == id`, so we re-derive on every
+    /// dashboard sync to heal in place.
     var name: String
     var owner: String
     var repo: String

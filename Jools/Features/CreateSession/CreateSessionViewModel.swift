@@ -118,13 +118,15 @@ final class CreateSessionViewModel: ObservableObject {
         HapticManager.shared.lightImpact()
 
         do {
-            // Build source context - use proper source name format
-            let sourceName = "sources/\(source.id)"
-
+            // Use the opaque server-provided resource name verbatim.
+            // The Jules docs are inconsistent about whether ids are
+            // bare slugs or full `sources/...` paths, so synthesizing
+            // the prefix client-side is a portability hazard. We just
+            // forward `source.name` as-is.
             let request = CreateSessionRequest(
                 prompt: prompt,
                 sourceContext: SourceContextDTO(
-                    source: sourceName,
+                    source: source.name,
                     githubRepoContext: GitHubRepoContextDTO(startingBranch: selectedBranch)
                 ),
                 title: effectiveTitle,

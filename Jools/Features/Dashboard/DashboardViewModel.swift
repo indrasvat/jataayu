@@ -64,7 +64,9 @@ final class DashboardViewModel: ObservableObject {
             )
 
             if let existing = try? context.fetch(descriptor).first {
-                // Update existing
+                // Refresh fields from server. `name` heals in place for
+                // any row persisted by an older app version that stored
+                // `name == id`.
                 existing.name = dto.name
                 existing.owner = dto.githubRepo.owner
                 existing.repo = dto.githubRepo.repo
