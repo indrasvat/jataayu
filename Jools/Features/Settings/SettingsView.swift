@@ -5,9 +5,17 @@ struct SettingsView: View {
     @EnvironmentObject private var dependencies: AppDependency
     @State private var showSignOutAlert = false
     @State private var showDeleteDataAlert = false
+    @State private var path = NavigationPath()
+
+    private var initialDestination: SettingsDestination? {
+        guard dependencies.isUITestMode else { return nil }
+        let environment = ProcessInfo.processInfo.environment
+        guard let rawValue = environment["JOOLS_UI_TEST_SETTINGS_DESTINATION"] else { return nil }
+        return SettingsDestination(rawValue: rawValue)
+    }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 // Account Section
                 Section("Account") {
@@ -31,15 +39,11 @@ struct SettingsView: View {
 
                 // Preferences Section
                 Section("Preferences") {
-                    NavigationLink {
-                        AppearanceSettingsView()
-                    } label: {
+                    NavigationLink(value: SettingsDestination.appearance) {
                         Label("Appearance", systemImage: "paintbrush")
                     }
 
-                    NavigationLink {
-                        NotificationSettingsView()
-                    } label: {
+                    NavigationLink(value: SettingsDestination.notifications) {
                         Label("Notifications", systemImage: "bell")
                     }
                 }
@@ -106,6 +110,14 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .navigationDestination(for: SettingsDestination.self) { destination in
+                switch destination {
+                case .appearance:
+                    AppearanceSettingsView()
+                case .notifications:
+                    NotificationSettingsView()
+                }
+            }
             .alert("Sign Out", isPresented: $showSignOutAlert) {
                 Button("Cancel", role: .cancel) {}
                 Button("Sign Out", role: .destructive) {
@@ -122,6 +134,10 @@ struct SettingsView: View {
             } message: {
                 Text("This will delete all local data and sign you out. This action cannot be undone.")
             }
+            .onAppear {
+                guard let initialDestination, path.isEmpty else { return }
+                path.append(initialDestination)
+            }
         }
     }
 
@@ -137,20 +153,37 @@ struct SettingsView: View {
     }
 }
 
+private enum SettingsDestination: String, Hashable {
+    case appearance
+    case notifications
+}
+
 // MARK: - Settings Sub-Views
 
 struct AppearanceSettingsView: View {
-    @AppStorage("colorScheme") private var colorScheme: String = "system"
+    @EnvironmentObject private var themeSettings: ThemeSettings
 
     var body: some View {
         List {
             Section("Theme") {
-                Picker("Color Scheme", selection: $colorScheme) {
-                    Text("System").tag("system")
-                    Text("Light").tag("light")
-                    Text("Dark").tag("dark")
+                Picker(
+                    "Color Scheme",
+                    selection: Binding(
+                        get: { themeSettings.colorScheme },
+                        set: { themeSettings.update($0) }
+                    )
+                ) {
+                    ForEach(AppColorScheme.allCases) { scheme in
+                        Text(scheme.title).tag(scheme)
+                    }
                 }
                 .pickerStyle(.segmented)
+
+                if themeSettings.isOverriddenForTesting {
+                    Text("Theme is currently overridden by the UI test environment.")
+                        .font(.joolsCaption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .navigationTitle("Appearance")
@@ -175,4 +208,5 @@ struct NotificationSettingsView: View {
 #Preview {
     SettingsView()
         .environmentObject(AppDependency())
+        .environmentObject(ThemeSettings())
 }

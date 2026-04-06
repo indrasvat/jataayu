@@ -19,6 +19,7 @@
 		31A3B26995C0A1A927AB1EE3 /* JoolsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A89CE8F6A2B11FF71A6CACD /* JoolsApp.swift */; };
 		379A4C97F5AFADA4798685DD /* JulesAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A815BAA05D5FAE09D3574EA2 /* JulesAvatarView.swift */; };
 		39F64D299AABC06E653809D4 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19268781A8710BBE00FCBFA /* Typography.swift */; };
+		3CAA7E436B9D306B0B2A931D /* HomeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 780F2A8B4F314B456C0F0F29 /* HomeModels.swift */; };
 		3EB7A1B655D0AB046BA574F6 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5189B5350A2DE2BCEEA50333 /* DashboardView.swift */; };
 		46052E6C181403303FBE536F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 24D50484109E67C6A0DB04B9 /* Assets.xcassets */; };
 		49D3C4DF76FDFBCD3C6C5248 /* Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A8A9B1FB7AA68B646D2D858 /* Spacing.swift */; };
@@ -27,8 +28,10 @@
 		5AF12302F51A3369C9E8F734 /* Entities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D6623D9D0FC7D69F1C7144 /* Entities.swift */; };
 		694E2DC6F2E4B8C8623DA448 /* CreateSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 898E0E608FDB38A8ADE72E15 /* CreateSessionView.swift */; };
 		720B07E20C9153A13E5E77F0 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D2A326FD5B525C349C7A1A7 /* Colors.swift */; };
+		760E7E0A6C13B4D7D527C7A1 /* ScheduledTaskComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB0A370FBEEE4013D76774A /* ScheduledTaskComposerView.swift */; };
 		88C3D472854ACB73136B6244 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0D2225EE84F7ED0D259A09D /* OnboardingViewModel.swift */; };
 		932ED57E3B7FD8444726D063 /* PlanCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A3B30BFED7D0264ADE04BE4 /* PlanCardView.swift */; };
+		96B17DCA69761B8E29432453 /* Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1762997ED0E2F7DFFCDA8FFA /* Appearance.swift */; };
 		B56E5F823E44681CED001F72 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75EF4E3FF816718B4811F603 /* Haptics.swift */; };
 		B58C33D4DA434BE37D341EB8 /* SessionStatusBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 425B67829FCDB7DCDECCB419 /* SessionStatusBanner.swift */; };
 		B5D192367B5E7EB83EDBE8CE /* JoolsKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1A7F80469173E19E5304563B /* JoolsKit */; };
@@ -59,7 +62,9 @@
 /* Begin PBXFileReference section */
 		03D6623D9D0FC7D69F1C7144 /* Entities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entities.swift; sourceTree = "<group>"; };
 		05CC0D643717615BFD25DF44 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		0CB0A370FBEEE4013D76774A /* ScheduledTaskComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledTaskComposerView.swift; sourceTree = "<group>"; };
 		16EE3148567DD030F1F8D620 /* JoolsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoolsTests.swift; sourceTree = "<group>"; };
+		1762997ED0E2F7DFFCDA8FFA /* Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appearance.swift; sourceTree = "<group>"; };
 		24D50484109E67C6A0DB04B9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		24E9101694FA23EE0C261EF2 /* CompletionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletionCardView.swift; sourceTree = "<group>"; };
 		252B8CDB945E2A635CC39074 /* BuildInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildInfo.swift; sourceTree = "<group>"; };
@@ -72,6 +77,7 @@
 		5A3B30BFED7D0264ADE04BE4 /* PlanCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanCardView.swift; sourceTree = "<group>"; };
 		5D2A326FD5B525C349C7A1A7 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		75EF4E3FF816718B4811F603 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		780F2A8B4F314B456C0F0F29 /* HomeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeModels.swift; sourceTree = "<group>"; };
 		7A8A9B1FB7AA68B646D2D858 /* Spacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spacing.swift; sourceTree = "<group>"; };
 		7E8FC2819C3ADD06CE146BCF /* FilePillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePillView.swift; sourceTree = "<group>"; };
 		898E0E608FDB38A8ADE72E15 /* CreateSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateSessionView.swift; sourceTree = "<group>"; };
@@ -117,6 +123,8 @@
 			children = (
 				5189B5350A2DE2BCEEA50333 /* DashboardView.swift */,
 				288FD2F8B8CECF645C9290DF /* DashboardViewModel.swift */,
+				780F2A8B4F314B456C0F0F29 /* HomeModels.swift */,
+				0CB0A370FBEEE4013D76774A /* ScheduledTaskComposerView.swift */,
 				DDDA2EFE4958BD6C81DFFD3D /* SessionsListView.swift */,
 			);
 			path = Dashboard;
@@ -210,6 +218,7 @@
 		C2E897CE94D4F0E08C63906E /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
+				1762997ED0E2F7DFFCDA8FFA /* Appearance.swift */,
 				5D2A326FD5B525C349C7A1A7 /* Colors.swift */,
 				75EF4E3FF816718B4811F603 /* Haptics.swift */,
 				7A8A9B1FB7AA68B646D2D858 /* Spacing.swift */,
@@ -421,6 +430,7 @@
 			files = (
 				0CA7E6DE0147F5D21EB9137F /* AppCoordinator.swift in Sources */,
 				549EFAFF1C10E40C5BE8B1F9 /* AppDependency.swift in Sources */,
+				96B17DCA69761B8E29432453 /* Appearance.swift in Sources */,
 				26233A483DE4A601894F389B /* BuildInfo.swift in Sources */,
 				2DB352505475C540E2B938EA /* ChatView.swift in Sources */,
 				5198CCAEDBF5F086B1B9FE35 /* ChatViewModel.swift in Sources */,
@@ -434,12 +444,14 @@
 				5AF12302F51A3369C9E8F734 /* Entities.swift in Sources */,
 				EF11B0FB91A8B5AFC6F29ADD /* FilePillView.swift in Sources */,
 				B56E5F823E44681CED001F72 /* Haptics.swift in Sources */,
+				3CAA7E436B9D306B0B2A931D /* HomeModels.swift in Sources */,
 				31A3B26995C0A1A927AB1EE3 /* JoolsApp.swift in Sources */,
 				379A4C97F5AFADA4798685DD /* JulesAvatarView.swift in Sources */,
 				C23BD34EAA8584E3406BA65D /* OnboardingView.swift in Sources */,
 				88C3D472854ACB73136B6244 /* OnboardingViewModel.swift in Sources */,
 				932ED57E3B7FD8444726D063 /* PlanCardView.swift in Sources */,
 				1003079A28DB81B732A25C31 /* RootView.swift in Sources */,
+				760E7E0A6C13B4D7D527C7A1 /* ScheduledTaskComposerView.swift in Sources */,
 				B58C33D4DA434BE37D341EB8 /* SessionStatusBanner.swift in Sources */,
 				ECB31ECBBB363DF149E30721 /* SessionsListView.swift in Sources */,
 				2B7042B5F7BEB6633A3B23D8 /* SettingsView.swift in Sources */,

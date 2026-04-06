@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jools - Home Redesign Mock</title>
+    <style>
+        :root {
+            --accent: #8b5cf6;
+            --accent-strong: #7c3aed;
+            --accent-soft: #f1edff;
+            --accent-soft-2: #ede7ff;
+            --accent-border: rgba(139, 92, 246, 0.15);
+            --bg: #fcfbff;
+            --bg-wash: #f9f7ff;
+            --surface: #f4f2fb;
+            --surface-strong: #ece9f7;
+            --surface-white: rgba(255, 255, 255, 0.88);
+            --text-primary: #14121a;
+            --text-secondary: #6f6a7d;
+            --text-tertiary: #9b96aa;
+            --success: #31c46c;
+            --success-soft: rgba(49, 196, 108, 0.12);
+            --warning: #f0a93a;
+            --warning-soft: rgba(240, 169, 58, 0.14);
+            --danger: #ef6b73;
+            --danger-soft: rgba(239, 107, 115, 0.12);
+            --indigo: #6366f1;
+            --shadow-soft: 0 20px 40px -30px rgba(84, 56, 148, 0.28);
+            --shadow-card: 0 18px 28px -24px rgba(124, 58, 237, 0.16);
+            --radius-sm: 14px;
+            --radius-md: 18px;
+            --radius-lg: 24px;
+            --radius-xl: 30px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+            background:
+                radial-gradient(circle at 18% 12%, rgba(139, 92, 246, 0.12), transparent 28%),
+                radial-gradient(circle at 82% 8%, rgba(168, 85, 247, 0.11), transparent 24%),
+                linear-gradient(180deg, #fbfaff 0%, #f6f3ff 100%);
+            color: var(--text-primary);
+            padding: 28px;
+        }
+
+        .page {
+            max-width: 1480px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+        }
+
+        .page-subtitle {
+            margin-top: 6px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            max-width: 780px;
+            line-height: 1.5;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .legend-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.64);
+            border: 1px solid rgba(139, 92, 246, 0.12);
+            backdrop-filter: blur(18px);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--accent);
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(320px, 1fr));
+            gap: 28px;
+        }
+
+        .artboard-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .artboard-label {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+        }
+
+        .artboard-note {
+            font-size: 12px;
+            line-height: 1.45;
+            color: var(--text-secondary);
+        }
+
+        .device {
+            width: 390px;
+            height: 844px;
+            border-radius: 46px;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.08), transparent 28%),
+                linear-gradient(180deg, #fffefe 0%, var(--bg) 100%);
+            box-shadow:
+                0 24px 60px -28px rgba(40, 28, 73, 0.34),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .device::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            border-radius: 46px;
+            box-shadow: inset 0 0 0 1px rgba(103, 80, 164, 0.06);
+        }
+
+        .island {
+            position: absolute;
+            top: 11px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 126px;
+            height: 37px;
+            border-radius: 24px;
+            background: #050505;
+            z-index: 8;
+        }
+
+        .status-bar {
+            height: 54px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            padding: 0 28px 9px;
+            font-size: 15px;
+            font-weight: 700;
+            position: relative;
+            z-index: 5;
+        }
+
+        .status-icons {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--text-primary);
+        }
+
+        .status-dot {
+            width: 3px;
+            height: 3px;
+            border-radius: 999px;
+            background: #b6b0c4;
+        }
+
+        .screen {
+            height: calc(100% - 54px);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .scroll {
+            height: calc(100% - 88px);
+            overflow: hidden;
+            padding: 10px 18px 0;
+        }
+
+        .screen-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-top: 20px;
+            margin-bottom: 18px;
+        }
+
+        .title-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .eyebrow {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-tertiary);
+        }
+
+        .screen-title {
+            font-size: 31px;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -0.045em;
+        }
+
+        .screen-subtitle {
+            font-size: 14px;
+            line-height: 1.45;
+            color: var(--text-secondary);
+            max-width: 235px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .icon-button {
+            width: 44px;
+            height: 44px;
+            border-radius: 999px;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 14px 24px -20px rgba(124, 58, 237, 0.35);
+            color: var(--accent);
+        }
+
+        .icon-button svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+            stroke-width: 1.9;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .section {
+            margin-bottom: 18px;
+        }
+
+        .section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .section-meta {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+        }
+
+        .glass-card {
+            background: var(--surface-white);
+            border: 1px solid rgba(139, 92, 246, 0.08);
+            backdrop-filter: blur(28px);
+            box-shadow: var(--shadow-card);
+        }
+
+        .usage-card {
+            border-radius: 20px;
+            padding: 16px;
+        }
+
+        .usage-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .usage-label {
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .usage-value {
+            font-size: 15px;
+            color: var(--text-tertiary);
+        }
+
+        .usage-track {
+            position: relative;
+            height: 7px;
+            background: rgba(139, 92, 246, 0.08);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .usage-fill {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 41%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #8b5cf6 0%, #a855f7 65%, #c084fc 100%);
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .alert-card {
+            border-radius: 22px;
+            padding: 15px 16px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(250, 248, 255, 0.92));
+            border: 1px solid rgba(139, 92, 246, 0.08);
+            box-shadow: var(--shadow-card);
+        }
+
+        .alert-card.warning {
+            background: linear-gradient(180deg, #fffdf8, #fffaf0);
+            border-color: rgba(240, 169, 58, 0.18);
+        }
+
+        .alert-card.danger {
+            background: linear-gradient(180deg, #fffafc, #fff6f7);
+            border-color: rgba(239, 107, 115, 0.18);
+        }
+
+        .alert-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+        }
+
+        .alert-card.warning .alert-icon {
+            background: var(--warning-soft);
+            color: var(--warning);
+        }
+
+        .alert-card.danger .alert-icon {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+
+        .alert-icon svg,
+        .mini-icon svg,
+        .chip-icon svg,
+        .card-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            stroke-width: 1.9;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .alert-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .alert-title {
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 4px;
+        }
+
+        .alert-copy {
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .alert-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .pill-button,
+        .ghost-pill {
+            height: 32px;
+            border-radius: 999px;
+            border: none;
+            padding: 0 13px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+        }
+
+        .pill-button {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 14px 24px -18px rgba(139, 92, 246, 0.7);
+        }
+
+        .ghost-pill {
+            background: rgba(139, 92, 246, 0.08);
+            color: var(--accent);
+        }
+
+        .suggestion-card {
+            border-radius: 22px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(139, 92, 246, 0.08);
+            box-shadow: var(--shadow-card);
+        }
+
+        .suggestion-top {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .mini-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 11px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+        }
+
+        .mini-icon.testing {
+            background: rgba(99, 102, 241, 0.12);
+            color: #6366f1;
+        }
+
+        .mini-icon.performance {
+            background: rgba(236, 72, 153, 0.1);
+            color: #db2777;
+        }
+
+        .mini-icon.health {
+            background: rgba(34, 197, 94, 0.12);
+            color: #16a34a;
+        }
+
+        .suggestion-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .suggestion-title {
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.35;
+            margin-bottom: 5px;
+        }
+
+        .suggestion-subtitle {
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--text-secondary);
+        }
+
+        .confidence {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            margin-top: 8px;
+        }
+
+        .confidence-bar {
+            width: 4px;
+            border-radius: 999px;
+            background: rgba(139, 92, 246, 0.14);
+        }
+
+        .confidence-bar.active {
+            background: var(--success);
+        }
+
+        .confidence-bar:nth-child(1) { height: 8px; }
+        .confidence-bar:nth-child(2) { height: 11px; }
+        .confidence-bar:nth-child(3) { height: 14px; }
+        .confidence-bar:nth-child(4) { height: 17px; }
+
+        .suggestion-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .tag-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .inline-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 28px;
+            padding: 0 10px;
+            border-radius: 999px;
+            background: rgba(139, 92, 246, 0.08);
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .inline-tag.active {
+            color: var(--accent);
+            background: rgba(139, 92, 246, 0.13);
+        }
+
+        .card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .autopilot-card {
+            border-radius: 22px;
+            padding: 15px 14px 14px;
+            background: linear-gradient(180deg, rgba(247, 245, 255, 0.98), rgba(241, 237, 255, 0.95));
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            box-shadow: var(--shadow-card);
+        }
+
+        .autopilot-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .autopilot-meta {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .card-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+        }
+
+        .card-icon.bolt {
+            background: rgba(236, 72, 153, 0.12);
+            color: #db2777;
+        }
+
+        .card-icon.palette {
+            background: rgba(139, 92, 246, 0.13);
+            color: var(--accent);
+        }
+
+        .card-icon.sentinel {
+            background: rgba(99, 102, 241, 0.13);
+            color: var(--indigo);
+        }
+
+        .autopilot-name {
+            font-size: 15px;
+            font-weight: 800;
+            line-height: 1.25;
+        }
+
+        .autopilot-caption {
+            margin-top: 3px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.45;
+        }
+
+        .status-chip {
+            height: 28px;
+            padding: 0 10px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .status-chip.live {
+            background: var(--success-soft);
+            color: var(--success);
+        }
+
+        .status-chip.paused {
+            background: rgba(107, 114, 128, 0.12);
+            color: #6b7280;
+        }
+
+        .status-bullet {
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: currentColor;
+        }
+
+        .autopilot-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px 12px;
+            margin-bottom: 12px;
+        }
+
+        .autopilot-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .autopilot-stat-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-tertiary);
+        }
+
+        .autopilot-stat-value {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .action-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chip-grid {
+            display: flex;
+            gap: 8px;
+            overflow: hidden;
+        }
+
+        .agent-chip {
+            flex: 1;
+            min-width: 0;
+            padding: 12px 10px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(139, 92, 246, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 10px 18px -18px rgba(139, 92, 246, 0.2);
+        }
+
+        .agent-copy {
+            min-width: 0;
+        }
+
+        .agent-name {
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .agent-role {
+            margin-top: 3px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            line-height: 1.35;
+        }
+
+        .source-row {
+            display: flex;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .source-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 12px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(139, 92, 246, 0.08);
+            min-width: 0;
+            box-shadow: 0 12px 22px -22px rgba(139, 92, 246, 0.28);
+        }
+
+        .source-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
+            background: rgba(139, 92, 246, 0.14);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            flex: 0 0 auto;
+        }
+
+        .source-icon svg {
+            width: 17px;
+            height: 17px;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .source-copy {
+            min-width: 0;
+        }
+
+        .source-name {
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .source-owner {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .tab-bar {
+            position: absolute;
+            left: 18px;
+            right: 18px;
+            bottom: 16px;
+            height: 62px;
+            padding: 7px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid rgba(139, 92, 246, 0.08);
+            box-shadow: 0 18px 36px -28px rgba(84, 56, 148, 0.24);
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            backdrop-filter: blur(26px);
+        }
+
+        .tab {
+            border-radius: 999px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .tab.active {
+            background: linear-gradient(180deg, rgba(139, 92, 246, 0.16), rgba(139, 92, 246, 0.08));
+            color: var(--accent);
+        }
+
+        .tab svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .bottom-sheet {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 12px 16px 18px;
+            background: rgba(255, 255, 255, 0.98);
+            border-top-left-radius: 28px;
+            border-top-right-radius: 28px;
+            box-shadow: 0 -18px 36px -28px rgba(43, 28, 80, 0.3);
+            border-top: 1px solid rgba(139, 92, 246, 0.08);
+        }
+
+        .sheet-grabber {
+            width: 42px;
+            height: 5px;
+            border-radius: 999px;
+            background: rgba(20, 18, 26, 0.12);
+            margin: 0 auto 14px;
+        }
+
+        .sheet-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .sheet-title {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+
+        .sheet-link {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .field {
+            padding: 12px 13px;
+            border-radius: 16px;
+            background: var(--surface);
+            border: 1px solid rgba(139, 92, 246, 0.06);
+        }
+
+        .field-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-tertiary);
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .field-value {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .role-card {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 13px;
+            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(247, 245, 255, 1), rgba(241, 237, 255, 0.9));
+            border: 1px solid rgba(139, 92, 246, 0.09);
+            margin-bottom: 12px;
+        }
+
+        .role-title {
+            font-size: 14px;
+            font-weight: 800;
+            margin-bottom: 3px;
+        }
+
+        .role-copy {
+            font-size: 12px;
+            line-height: 1.45;
+            color: var(--text-secondary);
+        }
+
+        .advanced-card {
+            padding: 13px;
+            border-radius: 18px;
+            background: var(--surface);
+            border: 1px solid rgba(139, 92, 246, 0.06);
+        }
+
+        .advanced-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .advanced-title {
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .advanced-copy {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .checkbox-list {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .checkbox {
+            width: 15px;
+            height: 15px;
+            border-radius: 5px;
+            border: 1.5px solid rgba(139, 92, 246, 0.22);
+            background: rgba(139, 92, 246, 0.08);
+        }
+
+        .hidden-on-sheet {
+            filter: saturate(0.96);
+            opacity: 0.56;
+        }
+
+        @media (max-width: 1320px) {
+            .gallery {
+                grid-template-columns: repeat(2, minmax(320px, 1fr));
+            }
+        }
+
+        @media (max-width: 900px) {
+            body {
+                padding: 18px;
+            }
+
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .gallery {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="page-header">
+            <div>
+                <h1 class="page-title">Jools Home Redesign Mock</h1>
+                <p class="page-subtitle">
+                    Faithful to the current shipped app: light grouped surfaces, soft lilac cards, oversized SF-style title,
+                    restrained purple accent, and the floating blurred tab bar. The new design folds Suggestions and Scheduled
+                    into Home instead of adding a fourth tab.
+                </p>
+            </div>
+            <div class="legend">
+                <div class="legend-pill"><span class="legend-dot"></span> Home replaces Dashboard</div>
+                <div class="legend-pill"><span class="legend-dot"></span> Suggestions stay lightweight and glanceable</div>
+                <div class="legend-pill"><span class="legend-dot"></span> Scheduled work lives on Home, not as a new tab</div>
+            </div>
+        </header>
+
+        <section class="gallery">
+            <div class="artboard-wrap">
+                <div class="artboard-label">Mock A · Home Overview</div>
+                <div class="artboard-note">The default Home prioritizes attention, suggestions, and Scheduled work before source browsing.</div>
+                <div class="device">
+                    <div class="island"></div>
+                    <div class="status-bar">
+                        <div>8:54</div>
+                        <div class="status-icons">
+                            <span class="status-dot"></span>
+                            <span class="status-dot"></span>
+                            <span class="status-dot"></span>
+                            <svg width="17" height="12" viewBox="0 0 17 12" aria-hidden="true">
+                                <path d="M1 4.5C3.2 2.1 5.7 1 8.5 1s5.3 1.1 7.5 3.5" stroke="#14121a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+                                <path d="M4 7c1.4-1.4 2.9-2 4.5-2S11.6 5.6 13 7" stroke="#14121a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+                                <circle cx="8.5" cy="9.5" r="1.2" fill="#14121a"/>
+                            </svg>
+                            <svg width="24" height="12" viewBox="0 0 24 12" aria-hidden="true">
+                                <rect x="1" y="1" width="19" height="10" rx="3" stroke="#14121a" stroke-width="1.4" fill="none"/>
+                                <rect x="3" y="3" width="11" height="6" rx="2" fill="#14121a"/>
+                                <rect x="21" y="4" width="2" height="4" rx="1" fill="#14121a"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="screen">
+                        <div class="scroll">
+                            <header class="screen-header">
+                                <div class="title-stack">
+                                    <div class="eyebrow">Home</div>
+                                    <div class="screen-title">Jools</div>
+                                    <div class="screen-subtitle">A calmer control plane for Jules on iPhone.</div>
+                                </div>
+                                <div class="header-actions">
+                                    <button class="icon-button" aria-label="Refresh">
+                                        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v6h-6"/></svg>
+                                    </button>
+                                    <button class="icon-button" aria-label="Create new">
+                                        <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                    </button>
+                                </div>
+                            </header>
+
+                            <section class="section">
+                                <div class="usage-card glass-card">
+                                    <div class="usage-row">
+                                        <div class="usage-label">Today’s Usage</div>
+                                        <div class="usage-value">41 / 100</div>
+                                    </div>
+                                    <div class="usage-track"><div class="usage-fill"></div></div>
+                                </div>
+                            </section>
+
+                            <section class="section">
+                                <div class="section-head">
+                                    <div class="section-title">Needs Attention</div>
+                                    <div class="section-meta">2 items</div>
+                                </div>
+                                <div class="stack">
+                                    <article class="alert-card warning">
+                                        <div class="alert-icon">
+                                            <svg viewBox="0 0 24 24"><path d="M12 4l8 14H4L12 4z"/><path d="M12 9v4"/><circle cx="12" cy="16.5" r="1"/></svg>
+                                        </div>
+                                        <div class="alert-body">
+                                            <div class="alert-title">Plan approval needed in <span style="color: var(--accent);">hews</span></div>
+                                            <div class="alert-copy">Jules is waiting at “Review and approve the plan” before it can proceed.</div>
+                                            <div class="alert-actions">
+                                                <button class="pill-button">Open Session</button>
+                                                <button class="ghost-pill">Review Plan</button>
+                                            </div>
+                                        </div>
+                                    </article>
+
+                                    <article class="alert-card danger">
+                                        <div class="alert-icon">
+                                            <svg viewBox="0 0 24 24"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                                        </div>
+                                        <div class="alert-body">
+                                            <div class="alert-title">Scheduled run failed in <span style="color: var(--accent);">namefix</span></div>
+                                            <div class="alert-copy">Bolt could not verify a performance tweak against the repo test suite.</div>
+                                            <div class="alert-actions">
+                                                <button class="pill-button">Investigate</button>
+                                                <button class="ghost-pill">Pause Agent</button>
+                                            </div>
+                                        </div>
+                                    </article>
+                                </div>
+                            </section>
+
+                            <section class="section">
+                                <div class="section-head">
+                                    <div class="section-title">Suggested for namefix</div>
+                                    <div class="section-meta">3 live</div>
+                                </div>
+                                <div class="card-list">
+                                    <article class="suggestion-card">
+                                        <div class="suggestion-top">
+                                            <div class="mini-icon performance">
+                                                <svg viewBox="0 0 24 24"><path d="M13 3L4 14h6l-1 7 9-11h-6l1-7z"/></svg>
+                                            </div>
+                                            <div class="suggestion-main">
+                                                <div class="suggestion-title">Tighten search rerender path in match preview</div>
+                                                <div class="suggestion-subtitle">Jules found a low-risk rendering optimization in the hot path for interactive filtering.</div>
+                                                <div class="confidence" aria-label="High confidence">
+                                                    <span class="confidence-bar active"></span>
+                                                    <span class="confidence-bar active"></span>
+                                                    <span class="confidence-bar active"></span>
+                                                    <span class="confidence-bar"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="suggestion-actions">
+                                            <div class="tag-row">
+                                                <span class="inline-tag active">Performance</span>
+                                                <span class="inline-tag">High confidence</span>
+                                            </div>
+                                            <div class="alert-actions">
+                                                <button class="pill-button">Start</button>
+                                                <button class="ghost-pill">Why</button>
+                                            </div>
+                                        </div>
+                                    </article>
+
+                                    <article class="suggestion-card">
+                                        <div class="suggestion-top">
+                                            <div class="mini-icon testing">
+                                                <svg viewBox="0 0 24 24"><path d="M9 3v5"/><path d="M15 3v5"/><path d="M7 8h10"/><path d="M10 8l-5 10a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18L14 8"/></svg>
+                                            </div>
+                                            <div class="suggestion-main">
+                                                <div class="suggestion-title">Add regression coverage for dotfile filtering</div>
+                                                <div class="suggestion-subtitle">A narrow testing gap remains around ignored file handling and hidden-directory traversal.</div>
+                                                <div class="confidence" aria-label="Medium confidence">
+                                                    <span class="confidence-bar active"></span>
+                                                    <span class="confidence-bar active"></span>
+                                                    <span class="confidence-bar"></span>
+                                                    <span class="confidence-bar"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="suggestion-actions">
+                                            <div class="tag-row">
+                                                <span class="inline-tag active">Testing</span>
+                                                <span class="inline-tag">Review first</span>
+                                            </div>
+                                            <div class="alert-actions">
+                                                <button class="pill-button">Start</button>
+                                                <button class="ghost-pill">Dismiss</button>
+                                            </div>
+                                        </div>
+                                    </article>
+                                </div>
+                            </section>
+
+                            <section class="section">
+                                <div class="section-head">
+                                    <div class="section-title">Scheduled</div>
+                                    <div class="section-meta">2 active</div>
+                                </div>
+                                <div class="card-list">
+                                    <article class="autopilot-card">
+                                        <div class="autopilot-top">
+                                            <div class="autopilot-meta">
+                                                <div class="card-icon bolt">
+                                                    <svg viewBox="0 0 24 24"><path d="M13 3L4 14h6l-1 7 9-11h-6l1-7z"/></svg>
+                                                </div>
+                                                <div>
+                                                    <div class="autopilot-name">Bolt · Performance Sweep</div>
+                                                    <div class="autopilot-caption">Small measurable optimizations on <strong>main</strong></div>
+                                                </div>
+                                            </div>
+                                            <div class="status-chip live"><span class="status-bullet"></span> Active</div>
+                                        </div>
+                                        <div class="autopilot-grid">
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Runs</div>
+                                                <div class="autopilot-stat-value">Daily · 1:00 PM</div>
+                                            </div>
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Next</div>
+                                                <div class="autopilot-stat-value">Today · 1h 12m</div>
+                                            </div>
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Last result</div>
+                                                <div class="autopilot-stat-value">PR opened yesterday</div>
+                                            </div>
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Repo</div>
+                                                <div class="autopilot-stat-value">namefix</div>
+                                            </div>
+                                        </div>
+                                        <div class="action-row">
+                                            <button class="pill-button">Pause</button>
+                                            <button class="ghost-pill">Edit</button>
+                                            <button class="ghost-pill">Run Now</button>
+                                        </div>
+                                    </article>
+
+                                    <div class="chip-grid">
+                                        <article class="agent-chip">
+                                            <div class="card-icon bolt">
+                                                <svg viewBox="0 0 24 24"><path d="M13 3L4 14h6l-1 7 9-11h-6l1-7z"/></svg>
+                                            </div>
+                                            <div class="agent-copy">
+                                                <div class="agent-name">Bolt</div>
+                                                <div class="agent-role">Performance agent</div>
+                                            </div>
+                                        </article>
+                                        <article class="agent-chip">
+                                            <div class="card-icon palette">
+                                                <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18h1.2a2.3 2.3 0 0 0 0-4.6H12a2 2 0 0 1 0-4h3.5a4.5 4.5 0 0 0 0-9H12z"/><circle cx="7.5" cy="10" r="1"/><circle cx="9.5" cy="7.2" r="1"/><circle cx="13" cy="7" r="1"/></svg>
+                                            </div>
+                                            <div class="agent-copy">
+                                                <div class="agent-name">Palette</div>
+                                                <div class="agent-role">UX polish agent</div>
+                                            </div>
+                                        </article>
+                                        <article class="agent-chip">
+                                            <div class="card-icon sentinel">
+                                                <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.3 8-7 10-3.7-2-7-5-7-10V6l7-3z"/><path d="M9.5 12l1.8 1.8 3.7-3.8"/></svg>
+                                            </div>
+                                            <div class="agent-copy">
+                                                <div class="agent-name">Sentinel</div>
+                                                <div class="agent-role">Security agent</div>
+                                            </div>
+                                        </article>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="section">
+                                <div class="section-head">
+                                    <div class="section-title">Sources</div>
+                                    <div class="section-meta">30</div>
+                                </div>
+                                <div class="source-row">
+                                    <article class="source-pill">
+                                        <div class="source-icon">
+                                            <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+                                        </div>
+                                        <div class="source-copy">
+                                            <div class="source-name">namefix</div>
+                                            <div class="source-owner">indrasvat</div>
+                                        </div>
+                                    </article>
+                                    <article class="source-pill">
+                                        <div class="source-icon">
+                                            <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+                                        </div>
+                                        <div class="source-copy">
+                                            <div class="source-name">hews</div>
+                                            <div class="source-owner">indrasvat</div>
+                                        </div>
+                                    </article>
+                                    <article class="source-pill">
+                                        <div class="source-icon">
+                                            <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+                                        </div>
+                                        <div class="source-copy">
+                                            <div class="source-name">jools</div>
+                                            <div class="source-owner">indrasvat</div>
+                                        </div>
+                                    </article>
+                                </div>
+                            </section>
+                        </div>
+
+                        <nav class="tab-bar" aria-label="Tab bar">
+                            <div class="tab active">
+                                <svg viewBox="0 0 24 24"><path d="M4 11h7V4H4z"/><path d="M13 20h7v-7h-7z"/><path d="M13 4h7v5h-7z"/><path d="M4 14h7v6H4z"/></svg>
+                                <span>Home</span>
+                            </div>
+                            <div class="tab">
+                                <svg viewBox="0 0 24 24"><path d="M7 8h10a4 4 0 0 1 0 8h-1l-4 3v-3H7a4 4 0 1 1 0-8z"/><path d="M9 11h6"/></svg>
+                                <span>Sessions</span>
+                            </div>
+                            <div class="tab">
+                                <svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6c.1-.3.1-.7.1-1z"/></svg>
+                                <span>Settings</span>
+                            </div>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+
+            <div class="artboard-wrap">
+                <div class="artboard-label">Mock B · Home Scrolled To Scheduled</div>
+                <div class="artboard-note">Scheduled work is a Home-native recurring-work surface, not a separate tab. It coexists with quick source access.</div>
+                <div class="device">
+                    <div class="island"></div>
+                    <div class="status-bar">
+                        <div>8:54</div>
+                        <div class="status-icons">
+                            <span class="status-dot"></span>
+                            <span class="status-dot"></span>
+                            <span class="status-dot"></span>
+                            <svg width="17" height="12" viewBox="0 0 17 12" aria-hidden="true">
+                                <path d="M1 4.5C3.2 2.1 5.7 1 8.5 1s5.3 1.1 7.5 3.5" stroke="#14121a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+                                <path d="M4 7c1.4-1.4 2.9-2 4.5-2S11.6 5.6 13 7" stroke="#14121a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+                                <circle cx="8.5" cy="9.5" r="1.2" fill="#14121a"/>
+                            </svg>
+                            <svg width="24" height="12" viewBox="0 0 24 12" aria-hidden="true">
+                                <rect x="1" y="1" width="19" height="10" rx="3" stroke="#14121a" stroke-width="1.4" fill="none"/>
+                                <rect x="3" y="3" width="13" height="6" rx="2" fill="#14121a"/>
+                                <rect x="21" y="4" width="2" height="4" rx="1" fill="#14121a"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="screen">
+                        <div class="scroll">
+                            <header class="screen-header">
+                                <div class="title-stack">
+                                    <div class="eyebrow">Home</div>
+                                    <div class="screen-title">Jools</div>
+                                    <div class="screen-subtitle">Recurring work and suggestion triage in one place.</div>
+                                </div>
+                                <div class="header-actions">
+                                    <button class="icon-button" aria-label="Refresh">
+                                        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v6h-6"/></svg>
+                                    </button>
+                                </div>
+                            </header>
+
+                            <section class="section">
+                                <div class="section-head">
+                                    <div class="section-title">Scheduled</div>
+                                    <div class="section-meta">3 configured</div>
+                                </div>
+                                <div class="card-list">
+                                    <article class="autopilot-card">
+                                        <div class="autopilot-top">
+                                            <div class="autopilot-meta">
+                                                <div class="card-icon palette">
+                                                    <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18h1.2a2.3 2.3 0 0 0 0-4.6H12a2 2 0 0 1 0-4h3.5a4.5 4.5 0 0 0 0-9H12z"/><circle cx="7.5" cy="10" r="1"/><circle cx="9.5" cy="7.2" r="1"/><circle cx="13" cy="7" r="1"/></svg>
+                                                </div>
+                                                <div>
+                                                    <div class="autopilot-name">Palette · UI Polish Sweep</div>
+                                                    <div class="autopilot-caption">Micro-UX improvements for the primary repo surfaces.</div>
+                                                </div>
+                                            </div>
+                                            <div class="status-chip paused"><span class="status-bullet"></span> Paused</div>
+                                        </div>
+                                        <div class="autopilot-grid">
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Runs</div>
+                                                <div class="autopilot-stat-value">Weekly · Fri 10:00 AM</div>
+                                            </div>
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Last result</div>
+                                                <div class="autopilot-stat-value">Paused after open review</div>
+                                            </div>
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Branch</div>
+                                                <div class="autopilot-stat-value">main</div>
+                                            </div>
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Repo</div>
+                                                <div class="autopilot-stat-value">jools</div>
+                                            </div>
+                                        </div>
+                                        <div class="action-row">
+                                            <button class="pill-button">Resume</button>
+                                            <button class="ghost-pill">Edit</button>
+                                        </div>
+                                    </article>
+
+                                    <article class="autopilot-card">
+                                        <div class="autopilot-top">
+                                            <div class="autopilot-meta">
+                                                <div class="card-icon sentinel">
+                                                    <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.3 8-7 10-3.7-2-7-5-7-10V6l7-3z"/><path d="M9.5 12l1.8 1.8 3.7-3.8"/></svg>
+                                                </div>
+                                                <div>
+                                                    <div class="autopilot-name">Sentinel · Dependency Watch</div>
+                                                    <div class="autopilot-caption">Looks for narrowly scoped hardening work and regression-safe fixes.</div>
+                                                </div>
+                                            </div>
+                                            <div class="status-chip live"><span class="status-bullet"></span> Active</div>
+                                        </div>
+                                        <div class="autopilot-grid">
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Runs</div>
+                                                <div class="autopilot-stat-value">Daily · 7:30 AM</div>
+                                            </div>
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Next</div>
+                                                <div class="autopilot-stat-value">Tomorrow morning</div>
+                                            </div>
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Attention</div>
+                                                <div class="autopilot-stat-value">None</div>
+                                            </div>
+                                            <div class="autopilot-stat">
+                                                <div class="autopilot-stat-label">Repo</div>
+                                                <div class="autopilot-stat-value">namefix</div>
+                                            </div>
+                                        </div>
+                                        <div class="action-row">
+                                            <button class="pill-button">Pause</button>
+                                            <button class="ghost-pill">Run Now</button>
+                                            <button class="ghost-pill">History</button>
+                                        </div>
+                                    </article>
+                                </div>
+                            </section>
+
+                            <section class="section">
+                                <div class="section-head">
+                                    <div class="section-title">Schedule skill-based agents</div>
+                                    <div class="section-meta">Bootstrap</div>
+                                </div>
+                                <div class="chip-grid">
+                                    <article class="agent-chip">
+                                        <div class="card-icon bolt">
+                                            <svg viewBox="0 0 24 24"><path d="M13 3L4 14h6l-1 7 9-11h-6l1-7z"/></svg>
+                                        </div>
+                                        <div class="agent-copy">
+                                            <div class="agent-name">Bolt</div>
+                                            <div class="agent-role">Repeatable performance sweeps</div>
+                                        </div>
+                                    </article>
+                                    <article class="agent-chip">
+                                        <div class="card-icon palette">
+                                            <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18h1.2a2.3 2.3 0 0 0 0-4.6H12a2 2 0 0 1 0-4h3.5a4.5 4.5 0 0 0 0-9H12z"/><circle cx="7.5" cy="10" r="1"/><circle cx="9.5" cy="7.2" r="1"/><circle cx="13" cy="7" r="1"/></svg>
+                                        </div>
+                                        <div class="agent-copy">
+                                            <div class="agent-name">Palette</div>
+                                            <div class="agent-role">Accessible design touch-ups</div>
+                                        </div>
+                                    </article>
+                                    <article class="agent-chip">
+                                        <div class="card-icon sentinel">
+                                            <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.3 8-7 10-3.7-2-7-5-7-10V6l7-3z"/><path d="M9.5 12l1.8 1.8 3.7-3.8"/></svg>
+                                        </div>
+                                        <div class="agent-copy">
+                                            <div class="agent-name">Sentinel</div>
+                                            <div class="agent-role">Recurring hardening and review</div>
+                                        </div>
+                                    </article>
+                                </div>
+                            </section>
+
+                            <section class="section">
+                                <div class="section-head">
+                                    <div class="section-title">Sources</div>
+                                    <div class="section-meta">Recent</div>
+                                </div>
+                                <div class="source-row">
+                                    <article class="source-pill">
+                                        <div class="source-icon">
+                                            <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+                                        </div>
+                                        <div class="source-copy">
+                                            <div class="source-name">peek-it</div>
+                                            <div class="source-owner">indrasvat</div>
+                                        </div>
+                                    </article>
+                                    <article class="source-pill">
+                                        <div class="source-icon">
+                                            <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+                                        </div>
+                                        <div class="source-copy">
+                                            <div class="source-name">drishti</div>
+                                            <div class="source-owner">indrasvat</div>
+                                        </div>
+                                    </article>
+                                </div>
+                            </section>
+                        </div>
+
+                        <nav class="tab-bar" aria-label="Tab bar">
+                            <div class="tab active">
+                                <svg viewBox="0 0 24 24"><path d="M4 11h7V4H4z"/><path d="M13 20h7v-7h-7z"/><path d="M13 4h7v5h-7z"/><path d="M4 14h7v6H4z"/></svg>
+                                <span>Home</span>
+                            </div>
+                            <div class="tab">
+                                <svg viewBox="0 0 24 24"><path d="M7 8h10a4 4 0 0 1 0 8h-1l-4 3v-3H7a4 4 0 1 1 0-8z"/><path d="M9 11h6"/></svg>
+                                <span>Sessions</span>
+                            </div>
+                            <div class="tab">
+                                <svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6c.1-.3.1-.7.1-1z"/></svg>
+                                <span>Settings</span>
+                            </div>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+
+            <div class="artboard-wrap">
+                <div class="artboard-label">Mock C · New Scheduled Sheet</div>
+                <div class="artboard-note">Scheduled agents are created from a native sheet with simple controls first and advanced prompt details second.</div>
+                <div class="device">
+                    <div class="island"></div>
+                    <div class="status-bar">
+                        <div>8:54</div>
+                        <div class="status-icons">
+                            <span class="status-dot"></span>
+                            <span class="status-dot"></span>
+                            <span class="status-dot"></span>
+                            <svg width="17" height="12" viewBox="0 0 17 12" aria-hidden="true">
+                                <path d="M1 4.5C3.2 2.1 5.7 1 8.5 1s5.3 1.1 7.5 3.5" stroke="#14121a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+                                <path d="M4 7c1.4-1.4 2.9-2 4.5-2S11.6 5.6 13 7" stroke="#14121a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+                                <circle cx="8.5" cy="9.5" r="1.2" fill="#14121a"/>
+                            </svg>
+                            <svg width="24" height="12" viewBox="0 0 24 12" aria-hidden="true">
+                                <rect x="1" y="1" width="19" height="10" rx="3" stroke="#14121a" stroke-width="1.4" fill="none"/>
+                                <rect x="3" y="3" width="12" height="6" rx="2" fill="#14121a"/>
+                                <rect x="21" y="4" width="2" height="4" rx="1" fill="#14121a"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="screen">
+                        <div class="scroll hidden-on-sheet">
+                            <header class="screen-header">
+                                <div class="title-stack">
+                                    <div class="eyebrow">Home</div>
+                                    <div class="screen-title">Jools</div>
+                                    <div class="screen-subtitle">Scheduled setup starts from the same Home surface.</div>
+                                </div>
+                                <div class="header-actions">
+                                    <button class="icon-button" aria-label="Refresh">
+                                        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v6h-6"/></svg>
+                                    </button>
+                                </div>
+                            </header>
+                        </div>
+
+                        <div class="bottom-sheet">
+                            <div class="sheet-grabber"></div>
+                            <div class="sheet-head">
+                                <div class="sheet-title">New Scheduled Agent</div>
+                                <div class="sheet-link">Save</div>
+                            </div>
+
+                            <div class="role-card">
+                                <div class="card-icon bolt">
+                                    <svg viewBox="0 0 24 24"><path d="M13 3L4 14h6l-1 7 9-11h-6l1-7z"/></svg>
+                                </div>
+                                <div>
+                                    <div class="role-title">Bolt · Performance Sweep</div>
+                                    <div class="role-copy">A small, measurable performance improvement at a predictable cadence, with repo-safe guardrails.</div>
+                                </div>
+                            </div>
+
+                            <div class="field-grid">
+                                <div class="field">
+                                    <div class="field-label">Runs</div>
+                                    <div class="field-value">Daily · 1:00 PM</div>
+                                </div>
+                                <div class="field">
+                                    <div class="field-label">Timezone</div>
+                                    <div class="field-value">PDT</div>
+                                </div>
+                                <div class="field">
+                                    <div class="field-label">Repo</div>
+                                    <div class="field-value">namefix</div>
+                                </div>
+                                <div class="field">
+                                    <div class="field-label">Branch</div>
+                                    <div class="field-value">main</div>
+                                </div>
+                            </div>
+
+                            <div class="advanced-card">
+                                <div class="advanced-row">
+                                    <div class="advanced-title">Prompt details</div>
+                                    <div class="sheet-link">Expand</div>
+                                </div>
+                                <div class="advanced-copy">
+                                    Find one small performance improvement, verify it with the repo’s own checks, and stop if no clean low-risk win exists.
+                                </div>
+                                <div class="checkbox-list">
+                                    <div class="checkbox-row"><span class="checkbox"></span> Skip if another open PR exists for this repo</div>
+                                    <div class="checkbox-row"><span class="checkbox"></span> Notify only when the run needs attention</div>
+                                    <div class="checkbox-row"><span class="checkbox"></span> Pause automatically after failed verification</div>
+                                </div>
+                            </div>
+
+                            <div class="action-row" style="margin-top: 14px;">
+                                <button class="pill-button" style="flex: 1;">Create Schedule</button>
+                                <button class="ghost-pill">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

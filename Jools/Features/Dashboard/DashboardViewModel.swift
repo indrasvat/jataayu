@@ -36,14 +36,12 @@ final class DashboardViewModel: ObservableObject {
 
             // Count sessions created today
             tasksUsedToday = countSessionsCreatedToday(sessionsResponse.allItems)
-            print("DEBUG: Total sessions fetched: \(sessionsResponse.allItems.count), Today's count: \(tasksUsedToday)")
 
             // Save changes
             try modelContext.save()
 
         } catch {
             errorMessage = error.localizedDescription
-            print("Dashboard refresh failed: \(error)")
         }
     }
 

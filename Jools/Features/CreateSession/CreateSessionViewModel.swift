@@ -90,8 +90,16 @@ final class CreateSessionViewModel: ObservableObject {
 
     // MARK: - Initialization
 
-    init(source: SourceEntity) {
+    init(
+        source: SourceEntity,
+        initialPrompt: String = "",
+        initialTitle: String = "",
+        initialSessionMode: SessionMode = .interactivePlan
+    ) {
         self.source = source
+        self.prompt = initialPrompt
+        self.title = initialTitle
+        self.sessionMode = initialSessionMode
     }
 
     func configure(apiClient: APIClient, modelContext: ModelContext) {

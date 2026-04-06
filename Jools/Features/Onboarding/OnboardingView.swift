@@ -4,14 +4,47 @@ import SwiftUI
 /// Onboarding view for API key entry with Safari-based flow
 struct OnboardingView: View {
     @EnvironmentObject private var dependencies: AppDependency
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = OnboardingViewModel()
     @State private var showingSafari = false
     @State private var showingManualEntry = false
 
+    private var titleGradient: LinearGradient {
+        if colorScheme == .dark {
+            return LinearGradient(
+                colors: [.white, .white.opacity(0.9), Color(hex: "C084FC")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+
+        return LinearGradient(
+            colors: [Color.primary, Color.primary.opacity(0.92), Color.joolsAccentDark],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var secondaryTextColor: Color {
+        colorScheme == .dark ? .white.opacity(0.85) : .primary.opacity(0.72)
+    }
+
+    private var tertiaryTextColor: Color {
+        colorScheme == .dark ? .white.opacity(0.7) : .primary.opacity(0.58)
+    }
+
+    private var buildInfoColor: Color {
+        colorScheme == .dark ? .white.opacity(0.4) : .primary.opacity(0.38)
+    }
+
+    private var loadingOverlayTint: Color {
+        colorScheme == .dark ? .black.opacity(0.5) : .white.opacity(0.4)
+    }
+
     var body: some View {
         ZStack {
             // Animated gradient background
-            AnimatedGradientBackground()
+            AnimatedGradientBackground(colorScheme: colorScheme)
                 .ignoresSafeArea()
 
             VStack(spacing: JoolsSpacing.xl) {
@@ -24,17 +57,11 @@ struct OnboardingView: View {
                     Text("Jools")
                         .font(.system(size: 44, weight: .bold))
                         .tracking(-1.5)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.white, .white.opacity(0.9), Color(hex: "C084FC")],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .foregroundStyle(titleGradient)
 
                     Text("Your Pocket CTO")
                         .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(secondaryTextColor)
 
                     // Feature pills
                     FeaturePillsView()
@@ -64,7 +91,7 @@ struct OnboardingView: View {
                     Button(action: { showingManualEntry = true }) {
                         Text("I already have a key")
                             .font(.joolsCaption)
-                            .foregroundStyle(.white.opacity(0.7))
+                            .foregroundStyle(tertiaryTextColor)
                     }
                 }
                 .padding(.horizontal, JoolsSpacing.lg)
@@ -74,7 +101,7 @@ struct OnboardingView: View {
                 // Build info footer
                 Text(BuildInfo.debugDescription)
                     .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(buildInfoColor)
                     .padding(.bottom, JoolsSpacing.sm)
             }
         }
@@ -116,16 +143,16 @@ struct OnboardingView: View {
         .overlay {
             // Loading overlay
             if viewModel.isValidating {
-                Color.black.opacity(0.5)
+                loadingOverlayTint
                     .ignoresSafeArea()
                     .overlay {
                         VStack(spacing: JoolsSpacing.md) {
                             ProgressView()
-                                .tint(.white)
+                                .tint(colorScheme == .dark ? .white : .joolsAccent)
                                 .scaleEffect(1.5)
                             Text("Validating...")
                                 .font(.joolsBody)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(colorScheme == .dark ? Color.white : Color.primary)
                         }
                         .padding(JoolsSpacing.xl)
                         .background(.ultraThinMaterial)
@@ -219,27 +246,44 @@ struct ManualKeyEntrySheet: View {
 // MARK: - Supporting Views
 
 struct AnimatedGradientBackground: View {
+    let colorScheme: ColorScheme
     @State private var animateGradient = false
+
+    private var baseBackground: Color {
+        colorScheme == .dark ? Color(hex: "0A0A0F") : Color(hex: "F7F4FF")
+    }
+
+    private var primaryOrb: Color {
+        colorScheme == .dark ? Color.joolsAccent.opacity(0.3) : Color.joolsAccent.opacity(0.16)
+    }
+
+    private var secondaryOrb: Color {
+        colorScheme == .dark ? Color.joolsAccentSecondary.opacity(0.25) : Color.joolsAccentSecondary.opacity(0.12)
+    }
+
+    private var tertiaryOrb: Color {
+        colorScheme == .dark ? Color.joolsAccentDark.opacity(0.2) : Color.joolsAccentDark.opacity(0.08)
+    }
 
     var body: some View {
         ZStack {
-            Color(hex: "0A0A0F")
+            baseBackground
 
             // Animated gradient orbs
             Circle()
-                .fill(Color.joolsAccent.opacity(0.3))
+                .fill(primaryOrb)
                 .frame(width: 300, height: 300)
                 .blur(radius: 80)
                 .offset(x: animateGradient ? -50 : 50, y: animateGradient ? -100 : -50)
 
             Circle()
-                .fill(Color.joolsAccentSecondary.opacity(0.25))
+                .fill(secondaryOrb)
                 .frame(width: 250, height: 250)
                 .blur(radius: 60)
                 .offset(x: animateGradient ? 80 : -80, y: animateGradient ? 150 : 100)
 
             Circle()
-                .fill(Color.joolsAccentDark.opacity(0.2))
+                .fill(tertiaryOrb)
                 .frame(width: 200, height: 200)
                 .blur(radius: 50)
                 .offset(x: animateGradient ? -30 : 30, y: animateGradient ? 50 : -50)
@@ -302,6 +346,8 @@ struct LayersIcon: Shape {
 }
 
 struct FeaturePillsView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let features = [
         ("checkmark.circle.fill", "Plan Review"),
         ("clock.fill", "Real-time Updates"),
@@ -317,13 +363,22 @@ struct FeaturePillsView: View {
                     Text(title)
                 }
                 .font(.joolsCaption)
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(colorScheme == .dark ? Color.white.opacity(0.85) : Color.primary.opacity(0.8))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(Color.joolsAccent.opacity(0.12))
+                .background(
+                    colorScheme == .dark
+                        ? Color.joolsAccent.opacity(0.12)
+                        : Color.white.opacity(0.72)
+                )
                 .overlay(
                     Capsule()
-                        .stroke(Color.joolsAccent.opacity(0.4), lineWidth: 1)
+                        .stroke(
+                            colorScheme == .dark
+                                ? Color.joolsAccent.opacity(0.4)
+                                : Color.joolsAccent.opacity(0.22),
+                            lineWidth: 1
+                        )
                 )
                 .clipShape(Capsule())
             }

@@ -22,6 +22,7 @@ final class AppDependency: ObservableObject {
     init() {
         let environment = ProcessInfo.processInfo.environment
         self.isUITestMode = environment["JOOLS_UI_TEST_MODE"] == "1"
+        let shouldAuthenticateForUITest = environment["JOOLS_UI_TEST_AUTHENTICATED"] != "0"
 
         // Initialize keychain manager
         self.keychainManager = KeychainManager(
@@ -55,8 +56,10 @@ final class AppDependency: ObservableObject {
 
         // Check if user is authenticated
         if isUITestMode {
-            self.isAuthenticated = true
-            seedUITestData(scenario: environment["JOOLS_UI_TEST_SCENARIO"] ?? "running-session")
+            self.isAuthenticated = shouldAuthenticateForUITest
+            if shouldAuthenticateForUITest {
+                seedUITestData(scenario: environment["JOOLS_UI_TEST_SCENARIO"] ?? "running-session")
+            }
         } else {
             self.isAuthenticated = keychainManager.hasAPIKey()
         }
@@ -94,12 +97,31 @@ final class AppDependency: ObservableObject {
     private func seedUITestData(scenario: String) {
         let context = modelContainer.mainContext
 
+        let sources = [
+            SourceEntity(
+                id: "github/indrasvat/hews",
+                name: "hews",
+                owner: "indrasvat",
+                repo: "hews"
+            ),
+            SourceEntity(
+                id: "github/indrasvat/namefix",
+                name: "namefix",
+                owner: "indrasvat",
+                repo: "namefix"
+            ),
+        ]
+
+        for source in sources {
+            context.insert(source)
+        }
+
         let session = SessionEntity(
             id: "ui-session-\(scenario)",
             title: scenario == "stale-session" ? "UI Test Stale Session" : "UI Test Running Session",
             prompt: "Validate the session recovery UI",
             state: scenario == "stale-session" ? .inProgress : .awaitingPlanApproval,
-            sourceId: "sources/github/indrasvat/hews",
+            sourceId: "github/indrasvat/hews",
             sourceBranch: "main",
             automationMode: .autoCreatePR,
             requirePlanApproval: true,
@@ -107,6 +129,20 @@ final class AppDependency: ObservableObject {
             updatedAt: Date().addingTimeInterval(-30)
         )
         context.insert(session)
+
+        let secondarySession = SessionEntity(
+            id: "ui-session-awaiting-input-\(scenario)",
+            title: "UI Test Awaiting Input Session",
+            prompt: "Validate the home attention stack",
+            state: .awaitingUserInput,
+            sourceId: "github/indrasvat/namefix",
+            sourceBranch: "main",
+            automationMode: .autoCreatePR,
+            requirePlanApproval: false,
+            createdAt: Date().addingTimeInterval(-2_400),
+            updatedAt: Date().addingTimeInterval(-120)
+        )
+        context.insert(secondarySession)
 
         let activities = uiTestActivities(for: scenario)
         for activity in activities {

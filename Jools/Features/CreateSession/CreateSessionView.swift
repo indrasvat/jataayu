@@ -11,9 +11,21 @@ struct CreateSessionView: View {
     @StateObject private var viewModel: CreateSessionViewModel
     @FocusState private var promptFocused: Bool
 
-    init(source: SourceEntity) {
+    init(
+        source: SourceEntity,
+        initialPrompt: String = "",
+        initialTitle: String = "",
+        initialSessionMode: SessionMode = .interactivePlan
+    ) {
         self.source = source
-        _viewModel = StateObject(wrappedValue: CreateSessionViewModel(source: source))
+        _viewModel = StateObject(
+            wrappedValue: CreateSessionViewModel(
+                source: source,
+                initialPrompt: initialPrompt,
+                initialTitle: initialTitle,
+                initialSessionMode: initialSessionMode
+            )
+        )
     }
 
     var body: some View {

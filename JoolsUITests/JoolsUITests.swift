@@ -6,6 +6,59 @@ final class JoolsUITests: XCTestCase {
     }
 
     @MainActor
+    func testHomeShowsSuggestedAndScheduledSections() throws {
+        let app = makeApp(scenario: "running-session")
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["Needs Attention"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Suggested"].waitForExistence(timeout: 5))
+
+        let homeScroll = app.scrollViews.firstMatch
+        XCTAssertTrue(homeScroll.waitForExistence(timeout: 5))
+        scrollUntilVisible(
+            app.staticTexts["Scheduled"],
+            in: homeScroll,
+            maxSwipes: 3
+        )
+
+        XCTAssertTrue(app.staticTexts["Scheduled"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Sources"].exists)
+    }
+
+    @MainActor
+    func testScheduledPresetOpensComposer() throws {
+        let app = makeApp(scenario: "running-session")
+        app.launch()
+
+        let homeScroll = app.scrollViews.firstMatch
+        XCTAssertTrue(homeScroll.waitForExistence(timeout: 5))
+        scrollUntilVisible(app.staticTexts["Scheduled"], in: homeScroll, maxSwipes: 4)
+        let scheduleButton = app.buttons["Schedule"].firstMatch
+        scrollUntilVisible(scheduleButton, in: homeScroll, maxSwipes: 4)
+        XCTAssertTrue(scheduleButton.waitForExistence(timeout: 5))
+        scheduleButton.tap()
+
+        XCTAssertTrue(app.navigationBars["Scheduled Task"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Web handoff required"].exists)
+        XCTAssertTrue(app.buttons["scheduled.copyPrompt"].exists)
+    }
+
+    @MainActor
+    func testSuggestedStartOpensPrefilledSessionComposer() throws {
+        let app = makeApp(scenario: "running-session")
+        app.launch()
+
+        let startButton = app.buttons["Start"].firstMatch
+        XCTAssertTrue(startButton.waitForExistence(timeout: 5))
+        startButton.tap()
+
+        XCTAssertTrue(app.navigationBars["New Session"].waitForExistence(timeout: 5))
+        let promptField = app.textViews.firstMatch.exists ? app.textViews.firstMatch : app.textFields.firstMatch
+        XCTAssertTrue(promptField.waitForExistence(timeout: 5))
+        XCTAssertFalse((promptField.value as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+
+    @MainActor
     func testRunningSessionScreenShowsRecoveryChrome() throws {
         let app = makeApp(scenario: "running-session")
         app.launch()
@@ -59,16 +112,79 @@ final class JoolsUITests: XCTestCase {
         XCTAssertTrue(app.buttons["chat.refresh"].exists)
     }
 
-    private func makeApp(scenario: String, syncState: String? = nil) -> XCUIApplication {
+    @MainActor
+    func testOnboardingSupportsLightMode() throws {
+        let app = makeApp(
+            scenario: "running-session",
+            authenticated: false,
+            colorScheme: "light"
+        )
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["Jools"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Connect to Jules"].exists)
+        XCTAssertTrue(app.buttons["I already have a key"].exists)
+    }
+
+    @MainActor
+    func testHomeSupportsDarkMode() throws {
+        let app = makeApp(
+            scenario: "running-session",
+            colorScheme: "dark"
+        )
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["Needs Attention"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Suggested"].exists)
+        XCTAssertTrue(app.staticTexts["Scheduled"].exists)
+    }
+
+    @MainActor
+    func testAppearancePickerSwitchesSelectionLive() throws {
+        let app = makeApp(scenario: "running-session")
+        app.launchEnvironment["JOOLS_UI_TEST_SETTINGS_DESTINATION"] = "appearance"
+        app.launch()
+
+        let settingsTab = app.tabBars.buttons["Settings"].firstMatch
+        XCTAssertTrue(settingsTab.waitForExistence(timeout: 5))
+        settingsTab.tap()
+
+        let navBar = app.navigationBars["Appearance"]
+        XCTAssertTrue(navBar.waitForExistence(timeout: 5))
+
+        let lightButton = app.segmentedControls.buttons["Light"].firstMatch
+        let darkButton = app.segmentedControls.buttons["Dark"].firstMatch
+        XCTAssertTrue(lightButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(darkButton.exists)
+
+        lightButton.tap()
+        XCTAssertTrue(lightButton.isSelected)
+
+        darkButton.tap()
+        XCTAssertTrue(darkButton.isSelected)
+    }
+
+    @MainActor
+    private func makeApp(
+        scenario: String,
+        syncState: String? = nil,
+        authenticated: Bool = true,
+        colorScheme: String? = nil
+    ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["JOOLS_UI_TEST_MODE"] = "1"
         app.launchEnvironment["JOOLS_UI_TEST_SCENARIO"] = scenario
+        app.launchEnvironment["JOOLS_UI_TEST_AUTHENTICATED"] = authenticated ? "1" : "0"
         if let syncState {
             app.launchEnvironment["JOOLS_UI_TEST_SYNC_STATE"] = syncState
+        }
+        if let colorScheme {
+            app.launchEnvironment["JOOLS_UI_TEST_COLOR_SCHEME"] = colorScheme
         }
         return app
     }
 
+    @MainActor
     private func openSessionsTab(in app: XCUIApplication) {
         let tabButton = app.tabBars.buttons["tab.sessions"].firstMatch
         if tabButton.waitForExistence(timeout: 5) {
@@ -81,6 +197,7 @@ final class JoolsUITests: XCTestCase {
         titledTabButton.tap()
     }
 
+    @MainActor
     private func openSession(named title: String, in app: XCUIApplication) {
         let titleText = app.staticTexts[title].firstMatch
         XCTAssertTrue(titleText.waitForExistence(timeout: 5))
@@ -94,7 +211,17 @@ final class JoolsUITests: XCTestCase {
         titleText.tap()
     }
 
+    @MainActor
     private func staticText(containing substring: String, in app: XCUIApplication) -> XCUIElement {
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", substring)).firstMatch
+    }
+
+    @MainActor
+    private func scrollUntilVisible(_ element: XCUIElement, in scrollView: XCUIElement, maxSwipes: Int) {
+        var swipes = 0
+        while !element.exists && swipes < maxSwipes {
+            scrollView.swipeUp()
+            swipes += 1
+        }
     }
 }

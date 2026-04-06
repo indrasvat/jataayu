@@ -33,16 +33,16 @@ struct RootView: View {
 
 /// Main tab bar view for authenticated users
 struct MainTabView: View {
-    @State private var selectedTab: Tab = .dashboard
+    @State private var selectedTab: Tab = .home
 
     enum Tab: String, CaseIterable {
-        case dashboard
+        case home
         case sessions
         case settings
 
         var title: String {
             switch self {
-            case .dashboard: return "Dashboard"
+            case .home: return "Home"
             case .sessions: return "Sessions"
             case .settings: return "Settings"
             }
@@ -50,7 +50,7 @@ struct MainTabView: View {
 
         var icon: String {
             switch self {
-            case .dashboard: return "square.grid.2x2"
+            case .home: return "square.grid.2x2"
             case .sessions: return "bubble.left.and.bubble.right"
             case .settings: return "gear"
             }
@@ -61,10 +61,10 @@ struct MainTabView: View {
         TabView(selection: $selectedTab) {
             DashboardView()
                 .tabItem {
-                    Label(Tab.dashboard.title, systemImage: Tab.dashboard.icon)
+                    Label(Tab.home.title, systemImage: Tab.home.icon)
                 }
-                .tag(Tab.dashboard)
-                .accessibilityIdentifier("tab.dashboard")
+                .tag(Tab.home)
+                .accessibilityIdentifier("tab.home")
 
             SessionsListView()
                 .tabItem {
@@ -87,4 +87,5 @@ struct MainTabView: View {
 #Preview {
     RootView()
         .environmentObject(AppDependency())
+        .environmentObject(ThemeSettings())
 }
