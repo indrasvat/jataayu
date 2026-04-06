@@ -12,6 +12,11 @@ struct SessionsListView: View {
     @State private var pendingDeletion: SessionEntity?
     @State private var deletionError: String?
     @State private var showDeletionError = false
+    /// Throttle for the on-appear refresh — we want to feel fresh when
+    /// the user comes back to the list, but not hammer the API every
+    /// time the tab gains focus.
+    @State private var lastRefreshAt: Date?
+    private let onAppearRefreshInterval: TimeInterval = 15
 
     private var filteredSessions: [SessionEntity] {
         if searchText.isEmpty {
@@ -57,7 +62,7 @@ struct SessionsListView: View {
             .searchable(text: $searchText, prompt: "Search sessions")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: { Task { await refreshSessions() } }) {
+                    Button(action: { Task { await refreshSessions(reason: .manual) } }) {
                         Image(systemName: "arrow.clockwise")
                     }
                     .disabled(isLoading)
@@ -65,7 +70,7 @@ struct SessionsListView: View {
                 }
             }
             .refreshable {
-                await refreshSessions()
+                await refreshSessions(reason: .manual)
             }
             .overlay {
                 if sessions.isEmpty {
@@ -103,11 +108,32 @@ struct SessionsListView: View {
         }
         .task {
             guard !dependencies.isUITestMode else { return }
-            await refreshSessions()
+            await refreshSessions(reason: .firstAppearance)
+        }
+        .onAppear {
+            guard !dependencies.isUITestMode else { return }
+            // Re-enter the tab? If it's been a while since the last
+            // refresh, kick off a fresh listSessions in the background
+            // so cached row states (the "Starting" -> "Needs Approval"
+            // staleness) reconcile before the user notices.
+            if shouldRefreshOnAppear {
+                Task { await refreshSessions(reason: .reappearance) }
+            }
         }
     }
 
-    private func refreshSessions() async {
+    private enum RefreshReason {
+        case firstAppearance
+        case reappearance
+        case manual
+    }
+
+    private var shouldRefreshOnAppear: Bool {
+        guard let lastRefreshAt else { return true }
+        return Date().timeIntervalSince(lastRefreshAt) > onAppearRefreshInterval
+    }
+
+    private func refreshSessions(reason: RefreshReason = .manual) async {
         guard !dependencies.isUITestMode else { return }
         guard !isLoading else { return }
         isLoading = true
@@ -117,8 +143,9 @@ struct SessionsListView: View {
             let response = try await dependencies.apiClient.listSessions()
             syncSessions(response.allItems)
             try modelContext.save()
+            lastRefreshAt = Date()
         } catch {
-            print("Failed to refresh sessions: \(error)")
+            print("Failed to refresh sessions (\(reason)): \(error)")
         }
     }
 
