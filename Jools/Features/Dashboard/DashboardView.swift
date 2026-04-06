@@ -12,6 +12,7 @@ struct DashboardView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var createSessionDraft: CreateSessionDraft?
     @State private var scheduledDraft: ScheduledDraft?
+    @State private var showQuickTask = false
 
     private var sourcesByID: [String: SourceEntity] {
         // Sessions reference their source by either the bare id, the
@@ -57,6 +58,11 @@ struct DashboardView: View {
 
                     UsageStatsCard(tasksUsed: viewModel.tasksUsedToday)
                         .accessibilityIdentifier("home.usage")
+
+                    QuickCaptureCard {
+                        showQuickTask = true
+                    }
+                    .accessibilityIdentifier("home.quickCapture")
 
                     if let errorMessage = viewModel.errorMessage {
                         HomeBanner(
@@ -162,6 +168,9 @@ struct DashboardView: View {
                     initialTitle: draft.title,
                     initialSessionMode: draft.sessionMode
                 )
+            }
+            .sheet(isPresented: $showQuickTask) {
+                CreateSessionView(source: nil, initialSessionMode: .start)
             }
             .sheet(item: $scheduledDraft) { draft in
                 ScheduledTaskComposerView(source: draft.source, template: draft.template)
@@ -714,6 +723,48 @@ private func sectionHeader(title: String, meta: String) -> some View {
         Text(meta)
             .font(.joolsCaption)
             .foregroundStyle(.secondary)
+    }
+}
+
+/// Repoless quick-capture entry on Home. The whole card is one tap
+/// target — drop a thought, no repo, no branch picker.
+struct QuickCaptureCard: View {
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: JoolsSpacing.md) {
+                ZStack {
+                    Circle()
+                        .fill(Color.joolsAccent.opacity(0.14))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "sparkles")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(Color.joolsAccent)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Quick task")
+                        .font(.joolsHeadline)
+                        .foregroundStyle(.primary)
+                    Text("Hand Jules a self-contained task without picking a repo.")
+                        .font(.joolsCaption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding()
+            .background(Color.joolsSurface)
+            .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.md))
+        }
+        .buttonStyle(.plain)
     }
 }
 

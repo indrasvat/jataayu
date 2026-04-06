@@ -4,7 +4,7 @@ import JoolsKit
 
 /// View for creating a new Jules session, matching the web UI
 struct CreateSessionView: View {
-    let source: SourceEntity
+    let source: SourceEntity?
     @EnvironmentObject private var dependencies: AppDependency
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -12,7 +12,7 @@ struct CreateSessionView: View {
     @FocusState private var promptFocused: Bool
 
     init(
-        source: SourceEntity,
+        source: SourceEntity?,
         initialPrompt: String = "",
         initialTitle: String = "",
         initialSessionMode: SessionMode = .interactivePlan
@@ -31,8 +31,8 @@ struct CreateSessionView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Source header
-                SourceHeader(name: viewModel.sourceDisplayName)
+                // Source header (or repoless banner)
+                SourceHeader(name: viewModel.sourceDisplayName, isRepoless: viewModel.isRepoless)
 
                 Divider()
 
@@ -42,11 +42,17 @@ struct CreateSessionView: View {
                         // Prompt input
                         PromptInput(
                             prompt: $viewModel.prompt,
-                            isFocused: $promptFocused
+                            isFocused: $promptFocused,
+                            isRepoless: viewModel.isRepoless
                         )
 
-                        // Options bar
-                        OptionsBar(viewModel: viewModel)
+                        // Options bar — branch picker is only meaningful
+                        // when a repo is bound. Hide for repoless tasks.
+                        if !viewModel.isRepoless {
+                            OptionsBar(viewModel: viewModel)
+                        } else {
+                            ModeOnlyBar(viewModel: viewModel)
+                        }
 
                         // Advanced options (collapsed)
                         AdvancedOptionsSection(viewModel: viewModel)
@@ -65,7 +71,7 @@ struct CreateSessionView: View {
                     }
                 }
             }
-            .navigationTitle("New Session")
+            .navigationTitle(viewModel.isRepoless ? "Quick Task" : "New Session")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -101,20 +107,29 @@ struct CreateSessionView: View {
 
 private struct SourceHeader: View {
     let name: String
+    let isRepoless: Bool
 
     var body: some View {
         HStack {
-            Image(systemName: "folder.fill")
+            Image(systemName: isRepoless ? "sparkles" : "folder.fill")
                 .foregroundStyle(Color.joolsAccent)
 
-            Text(name)
-                .font(.joolsBody)
-                .fontWeight(.medium)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.joolsBody)
+                    .fontWeight(.medium)
+                if isRepoless {
+                    Text("No repo attached — Jules will work in a fresh sandbox.")
+                        .font(.joolsCaption)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             Spacer()
         }
         .padding()
         .background(Color.joolsSurface)
+        .accessibilityIdentifier("create.sourceHeader")
     }
 }
 
@@ -123,11 +138,24 @@ private struct SourceHeader: View {
 private struct PromptInput: View {
     @Binding var prompt: String
     var isFocused: FocusState<Bool>.Binding
+    var isRepoless: Bool = false
+
+    private var placeholder: String {
+        isRepoless
+            ? "What do you want Jules to do?"
+            : "What should Jules work on?"
+    }
+
+    private var hint: String {
+        isRepoless
+            ? "Quick tasks run in a fresh sandbox without a repo. Be self-contained — Jules can't read code unless you paste it in."
+            : "Be specific about what you want Jules to accomplish."
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: JoolsSpacing.xs) {
             TextField(
-                "What should Jules work on?",
+                placeholder,
                 text: $prompt,
                 axis: .vertical
             )
@@ -137,10 +165,12 @@ private struct PromptInput: View {
             .padding()
             .background(Color.joolsSurface)
             .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.md))
+            .accessibilityIdentifier("create.prompt")
 
-            Text("Be specific about what you want Jules to accomplish.")
+            Text(hint)
                 .font(.joolsCaption)
                 .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -198,6 +228,37 @@ private struct OptionsBar: View {
     }
 }
 
+// MARK: - Mode-Only Bar (repoless)
+
+private struct ModeOnlyBar: View {
+    @ObservedObject var viewModel: CreateSessionViewModel
+
+    var body: some View {
+        HStack(spacing: JoolsSpacing.sm) {
+            Spacer()
+
+            Button {
+                viewModel.showModeSheet = true
+            } label: {
+                HStack(spacing: JoolsSpacing.xxs) {
+                    Image(systemName: viewModel.sessionMode.icon)
+                    Text(viewModel.sessionMode.title)
+                    Image(systemName: "chevron.down")
+                        .font(.caption2)
+                }
+                .font(.joolsCaption)
+                .padding(.horizontal, JoolsSpacing.sm)
+                .padding(.vertical, JoolsSpacing.xs)
+                .background(Color.joolsAccent.opacity(0.15))
+                .foregroundStyle(Color.joolsAccent)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("create.mode")
+        }
+    }
+}
+
 // MARK: - Advanced Options
 
 private struct AdvancedOptionsSection: View {
@@ -220,17 +281,20 @@ private struct AdvancedOptionsSection: View {
                         .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.sm))
                 }
 
-                // Auto PR toggle
-                Toggle(isOn: $viewModel.autoCreatePR) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Auto-create Pull Request")
-                            .font(.joolsBody)
-                        Text("Automatically create a PR when session completes")
-                            .font(.joolsCaption)
-                            .foregroundStyle(.secondary)
+                // Auto-PR is meaningless for repoless tasks (there's
+                // nothing to PR against), so hide the toggle entirely.
+                if !viewModel.isRepoless {
+                    Toggle(isOn: $viewModel.autoCreatePR) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Auto-create Pull Request")
+                                .font(.joolsBody)
+                            Text("Automatically create a PR when session completes")
+                                .font(.joolsCaption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .tint(Color.joolsAccent)
                 }
-                .tint(Color.joolsAccent)
             }
             .padding(.top, JoolsSpacing.sm)
         }

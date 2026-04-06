@@ -46,7 +46,13 @@ enum SessionMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// View model for creating a new Jules session
+/// View model for creating a new Jules session.
+///
+/// `source` is optional so the same flow handles both repo-bound
+/// sessions and repoless quick-capture tasks. When `source` is nil
+/// the branch picker and source header are hidden by the view, and
+/// `createSession()` issues a `CreateSessionRequest.repoless(...)`
+/// instead of attaching a `sourceContext`.
 @MainActor
 final class CreateSessionViewModel: ObservableObject {
     // MARK: - State
@@ -67,7 +73,7 @@ final class CreateSessionViewModel: ObservableObject {
 
     // MARK: - Source Info
 
-    let source: SourceEntity
+    let source: SourceEntity?
 
     // MARK: - Dependencies
 
@@ -85,13 +91,16 @@ final class CreateSessionViewModel: ObservableObject {
     }
 
     var sourceDisplayName: String {
-        "\(source.owner)/\(source.repo)"
+        guard let source else { return "Quick task" }
+        return "\(source.owner)/\(source.repo)"
     }
+
+    var isRepoless: Bool { source == nil }
 
     // MARK: - Initialization
 
     init(
-        source: SourceEntity,
+        source: SourceEntity?,
         initialPrompt: String = "",
         initialTitle: String = "",
         initialSessionMode: SessionMode = .interactivePlan
@@ -100,6 +109,11 @@ final class CreateSessionViewModel: ObservableObject {
         self.prompt = initialPrompt
         self.title = initialTitle
         self.sessionMode = initialSessionMode
+        if source == nil {
+            // Repoless tasks can't auto-create a PR (there's no repo to
+            // open one against), so default the toggle off.
+            self.autoCreatePR = false
+        }
     }
 
     func configure(apiClient: APIClient, modelContext: ModelContext) {
@@ -118,22 +132,7 @@ final class CreateSessionViewModel: ObservableObject {
         HapticManager.shared.lightImpact()
 
         do {
-            // Use the opaque server-provided resource name verbatim.
-            // The Jules docs are inconsistent about whether ids are
-            // bare slugs or full `sources/...` paths, so synthesizing
-            // the prefix client-side is a portability hazard. We just
-            // forward `source.name` as-is.
-            let request = CreateSessionRequest(
-                prompt: prompt,
-                sourceContext: SourceContextDTO(
-                    source: source.name,
-                    githubRepoContext: GitHubRepoContextDTO(startingBranch: selectedBranch)
-                ),
-                title: effectiveTitle,
-                automationMode: autoCreatePR ? "AUTO_CREATE_PR" : nil,
-                requirePlanApproval: sessionMode.requirePlanApproval
-            )
-
+            let request = makeRequest()
             let sessionDTO = try await apiClient.createSession(request)
 
             // Save to SwiftData
@@ -150,5 +149,33 @@ final class CreateSessionViewModel: ObservableObject {
             self.showError = true
             HapticManager.shared.error()
         }
+    }
+
+    private func makeRequest() -> CreateSessionRequest {
+        guard let source else {
+            // Repoless quick-capture: no sourceContext, no automation
+            // mode (PR creation only makes sense with a repo).
+            return CreateSessionRequest.repoless(
+                prompt: prompt,
+                title: effectiveTitle,
+                requirePlanApproval: sessionMode.requirePlanApproval
+            )
+        }
+
+        // Use the opaque server-provided resource name verbatim. The
+        // Jules docs are inconsistent about whether ids are bare slugs
+        // or full `sources/...` paths, so synthesizing the prefix
+        // client-side is a portability hazard. We just forward
+        // `source.name` as-is.
+        return CreateSessionRequest(
+            prompt: prompt,
+            sourceContext: SourceContextDTO(
+                source: source.name,
+                githubRepoContext: GitHubRepoContextDTO(startingBranch: selectedBranch)
+            ),
+            title: effectiveTitle,
+            automationMode: autoCreatePR ? "AUTO_CREATE_PR" : nil,
+            requirePlanApproval: sessionMode.requirePlanApproval
+        )
     }
 }

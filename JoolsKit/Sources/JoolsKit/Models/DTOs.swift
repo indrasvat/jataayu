@@ -330,17 +330,22 @@ public struct PlanStepDTO: Codable, Sendable {
 
 // MARK: - Request DTOs
 
-/// Request to create a new session
+/// Request to create a new session.
+///
+/// `sourceContext` is optional because Jules supports "repoless" sessions
+/// — quick-capture tasks that don't bind to a specific GitHub repo. When
+/// `sourceContext` is omitted the field is dropped from the encoded JSON
+/// rather than sent as `null`, matching the API's expectation.
 public struct CreateSessionRequest: Codable, Sendable {
     public let prompt: String
-    public let sourceContext: SourceContextDTO
+    public let sourceContext: SourceContextDTO?
     public let title: String?
     public let automationMode: String?
     public let requirePlanApproval: Bool?
 
     public init(
         prompt: String,
-        sourceContext: SourceContextDTO,
+        sourceContext: SourceContextDTO? = nil,
         title: String? = nil,
         automationMode: String? = nil,
         requirePlanApproval: Bool? = nil
@@ -350,6 +355,42 @@ public struct CreateSessionRequest: Codable, Sendable {
         self.title = title
         self.automationMode = automationMode
         self.requirePlanApproval = requirePlanApproval
+    }
+
+    /// Convenience constructor for repoless sessions.
+    public static func repoless(
+        prompt: String,
+        title: String? = nil,
+        requirePlanApproval: Bool? = nil
+    ) -> CreateSessionRequest {
+        CreateSessionRequest(
+            prompt: prompt,
+            sourceContext: nil,
+            title: title,
+            automationMode: nil,
+            requirePlanApproval: requirePlanApproval
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case prompt
+        case sourceContext
+        case title
+        case automationMode
+        case requirePlanApproval
+    }
+
+    /// Custom encoder that omits nil optionals entirely instead of
+    /// emitting `"sourceContext": null` etc. The Jules API treats an
+    /// absent field as "no source context" but rejects an explicit
+    /// null, so we have to be careful here.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(prompt, forKey: .prompt)
+        try container.encodeIfPresent(sourceContext, forKey: .sourceContext)
+        try container.encodeIfPresent(title, forKey: .title)
+        try container.encodeIfPresent(automationMode, forKey: .automationMode)
+        try container.encodeIfPresent(requirePlanApproval, forKey: .requirePlanApproval)
     }
 }
 
