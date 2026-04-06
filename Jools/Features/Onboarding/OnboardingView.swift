@@ -93,6 +93,7 @@ struct OnboardingView: View {
                         .background(LinearGradient.joolsAccentGradient)
                         .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.md))
                     }
+                    .accessibilityIdentifier("onboarding.connect")
 
                     // Secondary: Manual entry
                     Button(action: { showingManualEntry = true }) {
@@ -100,6 +101,7 @@ struct OnboardingView: View {
                             .font(.joolsCaption)
                             .foregroundStyle(tertiaryTextColor)
                     }
+                    .accessibilityIdentifier("onboarding.manualEntry")
                 }
                 .padding(.horizontal, JoolsSpacing.lg)
 

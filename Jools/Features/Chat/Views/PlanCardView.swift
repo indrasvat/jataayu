@@ -70,6 +70,7 @@ struct PlanCardView: View {
                     .font(.joolsCaption)
                     .foregroundStyle(Color.joolsAccent)
             }
+            .accessibilityIdentifier("plan.toggle")
         }
         .padding(JoolsSpacing.md)
     }
@@ -106,6 +107,7 @@ struct PlanCardView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .accessibilityIdentifier("plan.revise")
 
             Button(action: onApprove) {
                 Label("Approve", systemImage: "checkmark")
@@ -113,6 +115,7 @@ struct PlanCardView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(Color.joolsAccent)
+            .accessibilityIdentifier("plan.approve")
         }
         .padding(JoolsSpacing.md)
     }

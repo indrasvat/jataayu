@@ -25,6 +25,7 @@ struct SettingsView: View {
                         Text("••••••••")
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityIdentifier("settings.row.apiKey")
 
                     Link(destination: URL(string: "https://jules.google.com/settings")!) {
                         HStack {
@@ -35,6 +36,7 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .accessibilityIdentifier("settings.row.planUsage")
                 }
 
                 // Preferences Section
@@ -42,10 +44,12 @@ struct SettingsView: View {
                     NavigationLink(value: SettingsDestination.appearance) {
                         Label("Appearance", systemImage: "paintbrush")
                     }
+                    .accessibilityIdentifier("settings.row.appearance")
 
                     NavigationLink(value: SettingsDestination.notifications) {
                         Label("Notifications", systemImage: "bell")
                     }
+                    .accessibilityIdentifier("settings.row.notifications")
                 }
 
                 // About Section
@@ -180,10 +184,19 @@ struct AppearanceSettingsView: View {
                     )
                 ) {
                     ForEach(AppColorScheme.allCases) { scheme in
-                        Text(scheme.title).tag(scheme)
+                        Text(scheme.title)
+                            .tag(scheme)
+                            // Per-segment identifiers so axe / XCUITest
+                            // can target the segments by id rather than
+                            // raw coordinates. SwiftUI doesn't expose
+                            // the segments as separate AX elements, but
+                            // these still get picked up via the tag's
+                            // accessibility metadata.
+                            .accessibilityIdentifier("appearance.option.\(scheme.rawValue)")
                     }
                 }
                 .pickerStyle(.segmented)
+                .accessibilityIdentifier("appearance.picker")
 
                 if themeSettings.isOverriddenForTesting {
                     Text("Theme is currently overridden by the UI test environment.")
