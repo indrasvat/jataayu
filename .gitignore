@@ -77,3 +77,7 @@ playground.xcworkspace
 
 # Local verification artifacts
 artifacts/
+
+# Throwaway design exploration mocks (icon iterations, glyph variants).
+# Canonical screen mocks live one level up in docs/mocks/ and stay tracked.
+docs/mocks/explorations/
