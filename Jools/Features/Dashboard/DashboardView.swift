@@ -50,6 +50,7 @@ struct DashboardView: View {
             }
         }
         .task {
+            guard !dependencies.isUITestMode else { return }
             await viewModel.refreshAsync(using: dependencies, modelContext: modelContext)
         }
     }

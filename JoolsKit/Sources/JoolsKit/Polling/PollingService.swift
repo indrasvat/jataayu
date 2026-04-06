@@ -21,12 +21,22 @@ public enum PollingState: Sendable {
     case stopped
 }
 
+public enum PollingRefreshReason: String, Sendable {
+    case initialLoad
+    case foregroundResume
+    case userMessageSent
+    case planApproved
+    case manualRefresh
+    case staleRecovery
+    case scheduled
+}
+
 /// Delegate protocol for receiving polling updates
 @MainActor
 public protocol PollingServiceDelegate: AnyObject {
-    func pollingService(_ service: PollingService, didUpdateSession session: SessionDTO)
-    func pollingService(_ service: PollingService, didUpdateActivities activities: [ActivityDTO])
-    func pollingService(_ service: PollingService, didEncounterError error: Error)
+    func pollingService(_ service: PollingService, didUpdateSession session: SessionDTO, reason: PollingRefreshReason)
+    func pollingService(_ service: PollingService, didUpdateActivities activities: [ActivityDTO], reason: PollingRefreshReason)
+    func pollingService(_ service: PollingService, didEncounterError error: Error, reason: PollingRefreshReason)
 }
 
 /// Service that manages adaptive polling for session updates
@@ -44,8 +54,12 @@ public final class PollingService: ObservableObject {
 
     private let api: APIClient
     private var pollingTask: Task<Void, Never>?
+    private var pollInFlight = false
+    private var queuedReason: PollingRefreshReason?
     private var lastUserInteraction: Date = Date()
     private var activeSessionId: String?
+    private var lastActivityCreateTime: Date?
+    private var burstIntervals: [TimeInterval] = []
 
     // MARK: - Initialization
 
@@ -60,8 +74,9 @@ public final class PollingService: ObservableObject {
     // MARK: - Public API
 
     /// Start polling for updates on a specific session
-    public func startPolling(sessionId: String) {
+    public func startPolling(sessionId: String, initialActivityCreateTime: Date? = nil) {
         activeSessionId = sessionId
+        lastActivityCreateTime = initialActivityCreateTime
         state = .active
         lastUserInteraction = Date()
         restartPollingLoop()
@@ -74,6 +89,10 @@ public final class PollingService: ObservableObject {
         state = .stopped
         isPolling = false
         activeSessionId = nil
+        lastActivityCreateTime = nil
+        burstIntervals = []
+        queuedReason = nil
+        pollInFlight = false
     }
 
     /// Call this when the user interacts with the app
@@ -86,10 +105,13 @@ public final class PollingService: ObservableObject {
     }
 
     /// Trigger an immediate poll without waiting for the next interval
-    public func triggerImmediatePoll() {
-        guard let sessionId = activeSessionId else { return }
-        Task {
-            await performPoll(sessionId: sessionId)
+    public func triggerImmediatePoll(reason: PollingRefreshReason = .manualRefresh) {
+        guard activeSessionId != nil else { return }
+        if reason == .userMessageSent || reason == .planApproved {
+            activateBurstMode()
+        }
+        Task { [weak self] in
+            await self?.requestPoll(reason: reason)
         }
     }
 
@@ -108,6 +130,15 @@ public final class PollingService: ObservableObject {
         restartPollingLoop()
     }
 
+    public func updateActivityCursor(_ createTime: Date?) {
+        guard let createTime else { return }
+        if let existingCreateTime = lastActivityCreateTime {
+            lastActivityCreateTime = max(existingCreateTime, createTime)
+        } else {
+            lastActivityCreateTime = createTime
+        }
+    }
+
     // MARK: - Private Methods
 
     private func restartPollingLoop() {
@@ -115,36 +146,68 @@ public final class PollingService: ObservableObject {
 
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
-                guard let self = self, let sessionId = self.activeSessionId else { break }
-
-                self.isPolling = true
-                await self.performPoll(sessionId: sessionId)
-                self.isPolling = false
-                self.lastPollTime = Date()
+                guard let self = self, self.activeSessionId != nil else { break }
 
                 self.updateStateIfNeeded()
 
                 // Break out of loop if stopped (avoid Duration.seconds(.infinity) crash)
                 guard self.state != .stopped else { break }
 
-                let interval = self.currentInterval
+                let interval = self.nextInterval()
                 try? await Task.sleep(for: .seconds(interval))
+                guard !Task.isCancelled else { break }
+                await self.requestPoll(reason: .scheduled)
             }
         }
     }
 
-    private func performPoll(sessionId: String) async {
+    private func requestPoll(reason: PollingRefreshReason) async {
+        guard activeSessionId != nil else { return }
+
+        if pollInFlight {
+            if queuedReason == nil || queuedReason == .scheduled {
+                queuedReason = reason
+            }
+            return
+        }
+
+        pollInFlight = true
+        isPolling = true
+        defer {
+            isPolling = false
+            lastPollTime = Date()
+            pollInFlight = false
+            if let queuedReason {
+                self.queuedReason = nil
+                Task { [weak self] in
+                    await self?.requestPoll(reason: queuedReason)
+                }
+            }
+        }
+
+        guard let sessionId = activeSessionId else { return }
+        await performPoll(sessionId: sessionId, reason: reason)
+    }
+
+    private func performPoll(sessionId: String, reason: PollingRefreshReason) async {
         do {
             // Fetch session updates
             let session = try await api.getSession(id: sessionId)
-            delegate?.pollingService(self, didUpdateSession: session)
+            delegate?.pollingService(self, didUpdateSession: session, reason: reason)
 
             // Fetch new activities
-            let activitiesResponse = try await api.listActivities(sessionId: sessionId, pageSize: 30)
-            delegate?.pollingService(self, didUpdateActivities: activitiesResponse.allItems)
+            let activities = try await api.listAllActivities(
+                sessionId: sessionId,
+                pageSize: 100,
+                createTime: lastActivityCreateTime
+            )
+            if let latestCreateTime = activities.compactMap(\.createTime).max() {
+                updateActivityCursor(latestCreateTime)
+            }
+            delegate?.pollingService(self, didUpdateActivities: activities, reason: reason)
 
         } catch {
-            delegate?.pollingService(self, didEncounterError: error)
+            delegate?.pollingService(self, didEncounterError: error, reason: reason)
         }
     }
 
@@ -155,7 +218,16 @@ public final class PollingService: ObservableObject {
         }
     }
 
-    private var currentInterval: TimeInterval {
+    private func activateBurstMode() {
+        burstIntervals = [1, 1, 2, 2, 3, 3, 3]
+        restartPollingLoop()
+    }
+
+    private func nextInterval() -> TimeInterval {
+        if state != .background, !burstIntervals.isEmpty {
+            return burstIntervals.removeFirst()
+        }
+
         switch state {
         case .active:
             return PollingConfig.activeInterval

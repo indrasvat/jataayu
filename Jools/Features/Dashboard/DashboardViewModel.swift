@@ -20,6 +20,7 @@ final class DashboardViewModel: ObservableObject {
     }
 
     func refreshAsync(using dependencies: AppDependency, modelContext: ModelContext) async {
+        guard !dependencies.isUITestMode else { return }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }

@@ -175,9 +175,13 @@ final class ActivityEntity {
         SendStatus(rawValue: sendStatusRaw) ?? .sent
     }
 
+    var decodedContent: ActivityContentDTO? {
+        try? JSONDecoder().decode(ActivityContentDTO.self, from: contentJSON)
+    }
+
     var messageContent: String? {
         // First try to decode as ActivityContentDTO for full API response structure
-        if let content = try? JSONDecoder().decode(ActivityContentDTO.self, from: contentJSON) {
+        if let content = decodedContent {
             // Return message for user/agent messages
             if let message = content.message {
                 return message
@@ -217,7 +221,7 @@ final class ActivityEntity {
 
     /// Get bash command executions from this activity
     var bashCommands: [BashOutputDTO] {
-        guard let content = try? JSONDecoder().decode(ActivityContentDTO.self, from: contentJSON) else {
+        guard let content = decodedContent else {
             return []
         }
         return content.bashCommands
@@ -230,10 +234,22 @@ final class ActivityEntity {
 
     /// Get the git patch from changeSet artifacts (for session completed activities)
     var gitPatch: GitPatchDTO? {
-        guard let content = try? JSONDecoder().decode(ActivityContentDTO.self, from: contentJSON) else {
+        guard let content = decodedContent else {
             return nil
         }
         return content.artifacts?.compactMap { $0.changeSet?.gitPatch }.first
+    }
+
+    var progressTitle: String? {
+        decodedContent?.progressTitle
+    }
+
+    var progressDescription: String? {
+        decodedContent?.progressDescription
+    }
+
+    var plan: PlanDTO? {
+        decodedContent?.plan
     }
 
     /// Get diff stats from git patch

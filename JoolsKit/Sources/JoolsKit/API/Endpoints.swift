@@ -23,7 +23,7 @@ public enum Endpoint: Sendable {
     case sendMessage(sessionId: String)
 
     // Activities
-    case activities(sessionId: String, pageSize: Int, pageToken: String?)
+    case activities(sessionId: String, pageSize: Int, pageToken: String?, createTime: Date?)
     case activity(sessionId: String, activityId: String)
 
     /// The URL path for this endpoint
@@ -61,12 +61,18 @@ public enum Endpoint: Sendable {
         case .sendMessage(let sessionId):
             return "sessions/\(sessionId):sendMessage"
 
-        case .activities(let sessionId, let pageSize, let pageToken):
-            var path = "sessions/\(sessionId)/activities?pageSize=\(pageSize)"
+        case .activities(let sessionId, let pageSize, let pageToken, let createTime):
+            var components = URLComponents()
+            components.path = "sessions/\(sessionId)/activities"
+            var queryItems = [URLQueryItem(name: "pageSize", value: String(pageSize))]
             if let token = pageToken {
-                path += "&pageToken=\(token)"
+                queryItems.append(URLQueryItem(name: "pageToken", value: token))
             }
-            return path
+            if let createTime {
+                queryItems.append(URLQueryItem(name: "createTime", value: Self.activitiesTimestampString(from: createTime)))
+            }
+            components.queryItems = queryItems
+            return components.string ?? "sessions/\(sessionId)/activities?pageSize=\(pageSize)"
 
         case .activity(let sessionId, let activityId):
             return "sessions/\(sessionId)/activities/\(activityId)"
@@ -83,5 +89,11 @@ public enum Endpoint: Sendable {
         case .deleteSession:
             return .delete
         }
+    }
+
+    private static func activitiesTimestampString(from date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
     }
 }

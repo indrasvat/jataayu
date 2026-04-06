@@ -1,73 +1,116 @@
 import SwiftUI
 import JoolsKit
 
-// MARK: - Session Status Banner
-
 /// A prominent banner showing the current session status with contextual messaging
 struct SessionStatusBanner: View {
     let state: SessionState
+    let syncState: SessionSyncState
     let isPolling: Bool
+    let lastUpdatedAt: Date?
+    let currentStepTitle: String?
+    let currentStepDescription: String?
+    let onRetry: () -> Void
 
     @State private var dotCount = 1
     private let timer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
 
     var body: some View {
         if let config = bannerConfig {
-            HStack(spacing: JoolsSpacing.sm) {
-                // Status icon or spinner
-                if config.showSpinner {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                        .tint(config.foregroundColor)
-                } else {
-                    Image(systemName: config.icon)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(config.foregroundColor)
-                }
+            VStack(alignment: .leading, spacing: JoolsSpacing.xs) {
+                HStack(spacing: JoolsSpacing.sm) {
+                    if config.showSpinner {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .tint(config.foregroundColor)
+                    } else {
+                        Image(systemName: config.icon)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(config.foregroundColor)
+                    }
 
-                // Status message with animated dots for active states
-                HStack(spacing: 0) {
-                    Text(config.message)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(config.foregroundColor)
-
-                    if config.animateDots {
-                        Text(String(repeating: ".", count: dotCount))
+                    HStack(spacing: 0) {
+                        Text(config.message)
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(config.foregroundColor)
-                            .frame(width: 20, alignment: .leading)
+
+                        if config.animateDots {
+                            Text(String(repeating: ".", count: dotCount))
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(config.foregroundColor)
+                                .frame(width: 20, alignment: .leading)
+                        }
+                    }
+
+                    Spacer()
+
+                    if isPolling && config.showPollingIndicator {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 6, height: 6)
+                            Text("Live")
+                                .font(.caption2)
+                                .foregroundStyle(config.foregroundColor.opacity(0.8))
+                        }
                     }
                 }
 
-                Spacer()
-
-                // Polling indicator
-                if isPolling && config.showPollingIndicator {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 6, height: 6)
-                        Text("Live")
-                            .font(.caption2)
-                            .foregroundStyle(config.foregroundColor.opacity(0.8))
-                    }
+                if let currentStepTitle {
+                    Text(currentStepTitle)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .accessibilityIdentifier("chat.current-step-title")
                 }
 
-                // Action hint for states that need user action
-                if let actionHint = config.actionHint {
-                    Image(systemName: actionHint)
+                if let currentStepDescription, !currentStepDescription.isEmpty {
+                    Text(currentStepDescription)
                         .font(.caption)
-                        .foregroundStyle(config.foregroundColor.opacity(0.7))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack(spacing: JoolsSpacing.sm) {
+                    Text(syncFooterText)
+                        .font(.caption2)
+                        .foregroundStyle(config.foregroundColor.opacity(0.85))
+
+                    Spacer()
+
+                    if syncState.canRetry {
+                        Button("Tap to retry", action: onRetry)
+                            .font(.caption.weight(.semibold))
+                            .buttonStyle(.plain)
+                            .foregroundStyle(config.foregroundColor)
+                            .accessibilityIdentifier("chat.retry")
+                    }
                 }
             }
             .padding(.horizontal, JoolsSpacing.md)
             .padding(.vertical, JoolsSpacing.sm)
             .background(config.backgroundColor)
+            .accessibilityIdentifier("chat.status-banner")
             .onReceive(timer) { _ in
                 if config.animateDots {
                     dotCount = (dotCount % 3) + 1
                 }
             }
+        }
+    }
+
+    private var syncFooterText: String {
+        switch syncState {
+        case .idle:
+            if let lastUpdatedAt {
+                return "Last updated \(lastUpdatedAt.formatted(.relative(presentation: .named))) • Pull to refresh"
+            }
+            return "Pull to refresh"
+        case .syncing:
+            if let lastUpdatedAt {
+                return "Syncing… Last updated \(lastUpdatedAt.formatted(.relative(presentation: .named)))"
+            }
+            return "Syncing…"
+        case .stale(let message), .failed(let message):
+            return message
         }
     }
 
@@ -97,11 +140,10 @@ struct SessionStatusBanner: View {
 
         case .awaitingUserInput:
             return BannerConfig(
-                message: "Jules needs your input to continue",
+                message: "Jules needs your input",
                 icon: "bubble.left.fill",
                 backgroundColor: Color.joolsAwaiting.opacity(0.15),
-                foregroundColor: Color.joolsAwaiting,
-                actionHint: "chevron.down"
+                foregroundColor: Color.joolsAwaiting
             )
 
         case .awaitingPlanApproval:
@@ -109,8 +151,7 @@ struct SessionStatusBanner: View {
                 message: "Review and approve the plan",
                 icon: "doc.text.fill",
                 backgroundColor: Color.joolsAwaiting.opacity(0.15),
-                foregroundColor: Color.joolsAwaiting,
-                actionHint: "chevron.down"
+                foregroundColor: Color.joolsAwaiting
             )
 
         case .completed:
@@ -151,8 +192,6 @@ struct SessionStatusBanner: View {
     }
 }
 
-// MARK: - Banner Configuration
-
 private struct BannerConfig {
     let message: String
     let icon: String
@@ -161,19 +200,37 @@ private struct BannerConfig {
     var showSpinner: Bool = false
     var animateDots: Bool = false
     var showPollingIndicator: Bool = false
-    var actionHint: String? = nil
 }
-
-// MARK: - Preview
 
 #Preview("Session Status Banners") {
     VStack(spacing: 0) {
-        SessionStatusBanner(state: .running, isPolling: true)
-        SessionStatusBanner(state: .queued, isPolling: true)
-        SessionStatusBanner(state: .awaitingUserInput, isPolling: false)
-        SessionStatusBanner(state: .awaitingPlanApproval, isPolling: false)
-        SessionStatusBanner(state: .completed, isPolling: false)
-        SessionStatusBanner(state: .failed, isPolling: false)
+        SessionStatusBanner(
+            state: .running,
+            syncState: .syncing,
+            isPolling: true,
+            lastUpdatedAt: .now.addingTimeInterval(-10),
+            currentStepTitle: "Provide the summary to the user",
+            currentStepDescription: "Reply to the user directly in chat with the latest findings.",
+            onRetry: {}
+        )
+        SessionStatusBanner(
+            state: .awaitingPlanApproval,
+            syncState: .idle,
+            isPolling: false,
+            lastUpdatedAt: .now.addingTimeInterval(-42),
+            currentStepTitle: "Review the generated plan",
+            currentStepDescription: "Approve the plan to let Jules continue.",
+            onRetry: {}
+        )
+        SessionStatusBanner(
+            state: .completed,
+            syncState: .stale(message: "Showing the last synced timeline. Pull to refresh or tap to retry."),
+            isPolling: false,
+            lastUpdatedAt: .now.addingTimeInterval(-120),
+            currentStepTitle: "Session completed",
+            currentStepDescription: nil,
+            onRetry: {}
+        )
     }
     .background(Color.joolsBackground)
 }

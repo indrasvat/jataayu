@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Actor-based API client for the Jules API
 public actor APIClient {
@@ -9,6 +10,8 @@ public actor APIClient {
     private let baseURL: URL
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
+    private let logger = Logger(subsystem: "com.indrasvat.jools", category: "APIClient")
+    private var supportsActivityCreateTimeFilter = true
 
     // MARK: - Initialization
 
@@ -83,10 +86,21 @@ public actor APIClient {
 
         try handleStatusCode(httpResponse.statusCode, data: data)
 
+        if T.self == EmptyResponse.self, data.isEmpty {
+            return EmptyResponse() as! T
+        }
+
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
-            throw NetworkError.decodingFailed(error)
+            let diagnostic = makeDecodingDiagnostic(
+                endpoint: endpoint,
+                statusCode: httpResponse.statusCode,
+                data: data,
+                error: error
+            )
+            logger.error("\(diagnostic.errorDescription ?? "decode failure", privacy: .public)")
+            throw NetworkError.decodingFailed(diagnostic)
         }
     }
 
@@ -170,9 +184,52 @@ public actor APIClient {
     public func listActivities(
         sessionId: String,
         pageSize: Int = 30,
-        pageToken: String? = nil
+        pageToken: String? = nil,
+        createTime: Date? = nil
     ) async throws -> PaginatedResponse<ActivityDTO> {
-        try await request(.activities(sessionId: sessionId, pageSize: pageSize, pageToken: pageToken))
+        let requestedCreateTime = supportsActivityCreateTimeFilter ? createTime : nil
+
+        do {
+            return try await request(
+                .activities(
+                    sessionId: sessionId,
+                    pageSize: pageSize,
+                    pageToken: pageToken,
+                    createTime: requestedCreateTime
+                )
+            )
+        } catch NetworkError.apiError(let message)
+            where createTime != nil && requestedCreateTime != nil && isUnsupportedCreateTimeFilter(message) {
+            supportsActivityCreateTimeFilter = false
+            logger.notice("Activity createTime filter unsupported; falling back to full activity fetches")
+            return try await request(.activities(sessionId: sessionId, pageSize: pageSize, pageToken: pageToken, createTime: nil))
+        }
+    }
+
+    public func listAllActivities(
+        sessionId: String,
+        pageSize: Int = 100,
+        createTime: Date? = nil
+    ) async throws -> [ActivityDTO] {
+        var pageToken: String?
+        var aggregated: [ActivityDTO] = []
+
+        repeat {
+            let response = try await listActivities(
+                sessionId: sessionId,
+                pageSize: pageSize,
+                pageToken: pageToken,
+                createTime: createTime
+            )
+            aggregated.append(contentsOf: response.allItems)
+            pageToken = response.nextPageToken
+        } while pageToken != nil
+
+        guard let createTime else { return aggregated }
+        return aggregated.filter { activity in
+            guard let activityCreateTime = activity.createTime else { return true }
+            return activityCreateTime > createTime
+        }
     }
 
     /// Get a specific activity
@@ -196,6 +253,50 @@ public actor APIClient {
 }
 
 // MARK: - Type Erasure Helper
+
+extension APIClient {
+    private func makeDecodingDiagnostic(
+        endpoint: Endpoint,
+        statusCode: Int,
+        data: Data,
+        error: Error
+    ) -> ResponseDecodingDiagnostic {
+        let jsonObject = try? JSONSerialization.jsonObject(with: data)
+        let topLevelKeys: [String]
+        let activitySamples: [ResponseDecodingDiagnostic.ActivitySample]
+
+        if let dictionary = jsonObject as? [String: Any] {
+            topLevelKeys = dictionary.keys.sorted()
+            if let activities = dictionary["activities"] as? [[String: Any]] {
+                activitySamples = activities.prefix(3).map { activity in
+                    ResponseDecodingDiagnostic.ActivitySample(
+                        id: activity["id"] as? String ?? "unknown",
+                        createTime: activity["createTime"] as? String
+                    )
+                }
+            } else {
+                activitySamples = []
+            }
+        } else {
+            topLevelKeys = []
+            activitySamples = []
+        }
+
+        return ResponseDecodingDiagnostic(
+            endpointPath: endpoint.path,
+            statusCode: statusCode,
+            responseSize: data.count,
+            topLevelKeys: topLevelKeys,
+            activitySamples: activitySamples,
+            underlyingDescription: error.localizedDescription
+        )
+    }
+
+    private func isUnsupportedCreateTimeFilter(_ message: String) -> Bool {
+        message.contains("Unknown name \"createTime\"") ||
+        message.contains("Field 'createTime' could not be found")
+    }
+}
 
 private struct AnyEncodable: Encodable {
     private let _encode: (Encoder) throws -> Void

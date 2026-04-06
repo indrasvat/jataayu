@@ -11,6 +11,7 @@
 		1003079A28DB81B732A25C31 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05CC0D643717615BFD25DF44 /* RootView.swift */; };
 		113E640740C7E211F8A01D88 /* CreateSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FECDD3C8EC5285EF98459C4B /* CreateSessionViewModel.swift */; };
 		1337F0AB31DCBF2AEAF64751 /* CommandCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9088B1547DB4E3F2573B726B /* CommandCardView.swift */; };
+		18B6CD81257D2AD851AB420F /* JoolsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5D34F6FC258683E2CC45CC5 /* JoolsUITests.swift */; };
 		18D2CB9BBD6B2EFACC2F4AB9 /* CompletionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E9101694FA23EE0C261EF2 /* CompletionCardView.swift */; };
 		26233A483DE4A601894F389B /* BuildInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 252B8CDB945E2A635CC39074 /* BuildInfo.swift */; };
 		2B7042B5F7BEB6633A3B23D8 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCC578EDB6204DF44EF61C29 /* SettingsView.swift */; };
@@ -39,6 +40,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		5257BAAF765180DA91B7387F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C1BC98D182AEAC7B6ACD094E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B3F8895C28EF82D1A0049974;
+			remoteInfo = Jools;
+		};
 		67BFDA1FAAF2FBB9401D5CBE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C1BC98D182AEAC7B6ACD094E /* Project object */;
@@ -67,6 +75,7 @@
 		7A8A9B1FB7AA68B646D2D858 /* Spacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spacing.swift; sourceTree = "<group>"; };
 		7E8FC2819C3ADD06CE146BCF /* FilePillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePillView.swift; sourceTree = "<group>"; };
 		898E0E608FDB38A8ADE72E15 /* CreateSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateSessionView.swift; sourceTree = "<group>"; };
+		8BE084DAFFED7689552270FA /* JoolsUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = JoolsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9088B1547DB4E3F2573B726B /* CommandCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandCardView.swift; sourceTree = "<group>"; };
 		944C302473B5E438F545CB89 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		9FF85BCD4D8D93E930FC46B3 /* JoolsTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = JoolsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -79,6 +88,7 @@
 		DCC578EDB6204DF44EF61C29 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		DDDA2EFE4958BD6C81DFFD3D /* SessionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsListView.swift; sourceTree = "<group>"; };
 		E0D2225EE84F7ED0D259A09D /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewModel.swift; sourceTree = "<group>"; };
+		F5D34F6FC258683E2CC45CC5 /* JoolsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoolsUITests.swift; sourceTree = "<group>"; };
 		FECDD3C8EC5285EF98459C4B /* CreateSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateSessionViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -94,26 +104,12 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		30FEC143517FF37763676F60 /* Plan */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Plan;
-			sourceTree = "<group>";
-		};
 		3FEF056E519B01543AFC9064 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
 				DCC578EDB6204DF44EF61C29 /* SettingsView.swift */,
 			);
 			path = Settings;
-			sourceTree = "<group>";
-		};
-		56748DE69673D99EB2ED1980 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Resources;
 			sourceTree = "<group>";
 		};
 		5C5EC898958098FB5BC7922C /* Dashboard */ = {
@@ -139,6 +135,7 @@
 			children = (
 				BA441F491D4B7A8A8B17794C /* Jools.app */,
 				9FF85BCD4D8D93E930FC46B3 /* JoolsTests.xctest */,
+				8BE084DAFFED7689552270FA /* JoolsUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -178,7 +175,6 @@
 				8DBE9228B3B98327C1EE70DA /* App */,
 				8E4A2B0F831E7978FE20CEDD /* Core */,
 				B0BEAF7B929C228E8C03AD44 /* Features */,
-				56748DE69673D99EB2ED1980 /* Resources */,
 			);
 			path = Jools;
 			sourceTree = "<group>";
@@ -190,7 +186,6 @@
 				FAD88FC1C07DD2680F8DB572 /* CreateSession */,
 				5C5EC898958098FB5BC7922C /* Dashboard */,
 				FD4D16A1C7EC6D02A8D093B2 /* Onboarding */,
-				30FEC143517FF37763676F60 /* Plan */,
 				3FEF056E519B01543AFC9064 /* Settings */,
 			);
 			path = Features;
@@ -202,6 +197,14 @@
 				16EE3148567DD030F1F8D620 /* JoolsTests.swift */,
 			);
 			path = JoolsTests;
+			sourceTree = "<group>";
+		};
+		B6830CA22B6CEA7F47824638 /* JoolsUITests */ = {
+			isa = PBXGroup;
+			children = (
+				F5D34F6FC258683E2CC45CC5 /* JoolsUITests.swift */,
+			);
+			path = JoolsUITests;
 			sourceTree = "<group>";
 		};
 		C2E897CE94D4F0E08C63906E /* DesignSystem */ = {
@@ -220,6 +223,7 @@
 			children = (
 				A01B3137E62F8B9EDAEF8F9F /* Jools */,
 				B210F7D7324ECE83078C7B86 /* JoolsTests */,
+				B6830CA22B6CEA7F47824638 /* JoolsUITests */,
 				5F02405A2DD723B3B26E0E82 /* Packages */,
 				746C61647C154D3F024A67F3 /* Products */,
 			);
@@ -300,10 +304,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 75305221DFBE2502A42B733F /* Build configuration list for PBXNativeTarget "Jools" */;
 			buildPhases = (
-				70BB4C974BC667DEB11EA1D7 /* Generate Build Info */,
 				739605B3C62EE21980BC19C3 /* Sources */,
 				3C8C16178897834DA30E5A34 /* Resources */,
 				73404605F1B761347FB4A2E5 /* Frameworks */,
+				102C63552340DD3D442C0EFC /* Inject Build Metadata */,
 			);
 			buildRules = (
 			);
@@ -316,6 +320,24 @@
 			productName = Jools;
 			productReference = BA441F491D4B7A8A8B17794C /* Jools.app */;
 			productType = "com.apple.product-type.application";
+		};
+		C1167504349E54DB9EFB8E32 /* JoolsUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3F3532A3056090DDE2BD2D3C /* Build configuration list for PBXNativeTarget "JoolsUITests" */;
+			buildPhases = (
+				D4761436F2CF188F7C587494 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B8CA055CC167D60F483BAD8A /* PBXTargetDependency */,
+			);
+			name = JoolsUITests;
+			packageProductDependencies = (
+			);
+			productName = JoolsUITests;
+			productReference = 8BE084DAFFED7689552270FA /* JoolsUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
@@ -330,10 +352,12 @@
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
+					C1167504349E54DB9EFB8E32 = {
+						TestTargetID = B3F8895C28EF82D1A0049974;
+					};
 				};
 			};
 			buildConfigurationList = FEDB2EF7AB69367392D7C656 /* Build configuration list for PBXProject "Jools" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -346,11 +370,13 @@
 				2597E4C22A37A8803773BC3F /* XCLocalSwiftPackageReference "JoolsKit" */,
 			);
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 746C61647C154D3F024A67F3 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				B3F8895C28EF82D1A0049974 /* Jools */,
 				6DA4EC898F73D0663B70D7DF /* JoolsTests */,
+				C1167504349E54DB9EFB8E32 /* JoolsUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -367,7 +393,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		70BB4C974BC667DEB11EA1D7 /* Generate Build Info */ = {
+		102C63552340DD3D442C0EFC /* Inject Build Metadata */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -377,14 +403,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Generate Build Info";
+			name = "Inject Build Metadata";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Generate BuildInfo.swift with git SHA and build date\nOUTPUT_FILE=\"${SRCROOT}/Jools/Core/BuildInfo.swift\"\nGIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo \"unknown\")\nGIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo \"unknown\")\nBUILD_DATE=$(date -u +\"%Y-%m-%d %H:%M UTC\")\n\ncat > \"$OUTPUT_FILE\" << EOF\n// Auto-generated file - do not edit\nimport Foundation\n\nenum BuildInfo {\n    static let gitSHA = \"$GIT_SHA\"\n    static let gitBranch = \"$GIT_BRANCH\"\n    static let buildDate = \"$BUILD_DATE\"\n    static let version = Bundle.main.infoDictionary?[\"CFBundleShortVersionString\"] as? String ?? \"1.0.0\"\n    static let build = Bundle.main.infoDictionary?[\"CFBundleVersion\"] as? String ?? \"1\"\n\n    static var fullVersion: String {\n        \"\\(version) (\\(build))\"\n    }\n\n    static var debugDescription: String {\n        \"\\(fullVersion) • \\(gitSHA) • \\(gitBranch)\"\n    }\n}\nEOF\n";
+			shellScript = "INFO_PLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\nGIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo \"unknown\")\nGIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo \"unknown\")\nBUILD_DATE=$(date -u +\"%Y-%m-%d %H:%M UTC\")\n\n/usr/libexec/PlistBuddy -c \"Delete :JOOLS_GIT_SHA\" \"$INFO_PLIST\" >/dev/null 2>&1 || true\n/usr/libexec/PlistBuddy -c \"Delete :JOOLS_GIT_BRANCH\" \"$INFO_PLIST\" >/dev/null 2>&1 || true\n/usr/libexec/PlistBuddy -c \"Delete :JOOLS_BUILD_DATE\" \"$INFO_PLIST\" >/dev/null 2>&1 || true\n\n/usr/libexec/PlistBuddy -c \"Add :JOOLS_GIT_SHA string $GIT_SHA\" \"$INFO_PLIST\"\n/usr/libexec/PlistBuddy -c \"Add :JOOLS_GIT_BRANCH string $GIT_BRANCH\" \"$INFO_PLIST\"\n/usr/libexec/PlistBuddy -c \"Add :JOOLS_BUILD_DATE string $BUILD_DATE\" \"$INFO_PLIST\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -430,9 +456,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D4761436F2CF188F7C587494 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18B6CD81257D2AD851AB420F /* JoolsUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		B8CA055CC167D60F483BAD8A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B3F8895C28EF82D1A0049974 /* Jools */;
+			targetProxy = 5257BAAF765180DA91B7387F /* PBXContainerItemProxy */;
+		};
 		F1F019F233120EE5B1152C70 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B3F8895C28EF82D1A0049974 /* Jools */;
@@ -564,6 +603,23 @@
 			};
 			name = Debug;
 		};
+		AE514F8CFFAA2A8185FB0E62 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.indrasvat.JoolsUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Jools;
+			};
+			name = Release;
+		};
 		CFD6EA1ED275EE233B9813E5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -623,6 +679,23 @@
 			};
 			name = Release;
 		};
+		F49C08EFFAB9360A52D30ADF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.indrasvat.JoolsUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Jools;
+			};
+			name = Debug;
+		};
 		FFE3849B1F407D9DE5DB29F4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -656,6 +729,15 @@
 			buildConfigurations = (
 				D692E10EECD1DBBEF7C633E9 /* Debug */,
 				CFD6EA1ED275EE233B9813E5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		3F3532A3056090DDE2BD2D3C /* Build configuration list for PBXNativeTarget "JoolsUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F49C08EFFAB9360A52D30ADF /* Debug */,
+				AE514F8CFFAA2A8185FB0E62 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

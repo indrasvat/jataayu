@@ -32,7 +32,10 @@ let package = Package(
         .testTarget(
             name: "JoolsKitTests",
             dependencies: ["JoolsKit"],
-            path: "Tests/JoolsKitTests"
+            path: "Tests/JoolsKitTests",
+            resources: [
+                .process("Fixtures")
+            ]
         ),
     ]
 )

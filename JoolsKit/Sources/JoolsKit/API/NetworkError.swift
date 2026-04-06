@@ -1,5 +1,41 @@
 import Foundation
 
+public struct ResponseDecodingDiagnostic: Error, LocalizedError, Sendable {
+    public struct ActivitySample: Sendable {
+        public let id: String
+        public let createTime: String?
+    }
+
+    public let endpointPath: String
+    public let statusCode: Int
+    public let responseSize: Int
+    public let topLevelKeys: [String]
+    public let activitySamples: [ActivitySample]
+    public let underlyingDescription: String
+
+    public var errorDescription: String? {
+        var parts: [String] = [
+            "Failed to decode response for \(endpointPath)",
+            "HTTP \(statusCode)",
+            "\(responseSize) bytes"
+        ]
+
+        if !topLevelKeys.isEmpty {
+            parts.append("keys: \(topLevelKeys.joined(separator: ", "))")
+        }
+
+        if !activitySamples.isEmpty {
+            let samples = activitySamples
+                .map { "\($0.id)@\($0.createTime ?? "unknown")" }
+                .joined(separator: ", ")
+            parts.append("activity samples: \(samples)")
+        }
+
+        parts.append("underlying: \(underlyingDescription)")
+        return parts.joined(separator: " | ")
+    }
+}
+
 /// Errors that can occur during network operations with the Jules API
 public enum NetworkError: Error, LocalizedError, Sendable {
     case unauthorized

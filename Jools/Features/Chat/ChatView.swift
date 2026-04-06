@@ -7,7 +7,20 @@ struct ChatView: View {
     let session: SessionEntity
     @EnvironmentObject private var dependencies: AppDependency
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel = ChatViewModel()
+    @Query private var activities: [ActivityEntity]
+
+    init(session: SessionEntity) {
+        self.session = session
+        let sessionId = session.id
+        _activities = Query(
+            filter: #Predicate<ActivityEntity> { activity in
+                activity.session?.id == sessionId
+            },
+            sort: [SortDescriptor(\ActivityEntity.createdAt, order: .forward)]
+        )
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,7 +28,19 @@ struct ChatView: View {
             ChatHeader(session: session)
 
             // Status banner
-            SessionStatusBanner(state: session.state, isPolling: viewModel.isPolling)
+            SessionStatusBanner(
+                state: session.state,
+                syncState: viewModel.syncState,
+                isPolling: viewModel.isPolling,
+                lastUpdatedAt: viewModel.lastSuccessfulSyncAt,
+                currentStepTitle: currentStepTitle,
+                currentStepDescription: currentStepDescription,
+                onRetry: {
+                    Task {
+                        await viewModel.manualRefresh()
+                    }
+                }
+            )
 
             Divider()
 
@@ -24,44 +49,50 @@ struct ChatView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: JoolsSpacing.md) {
-                            ForEach(sortedActivities, id: \.id) { activity in
+                            ForEach(displayedActivities, id: \.id) { activity in
                                 ActivityView(activity: activity, session: session, viewModel: viewModel)
                                     .id(activity.id)
                             }
 
                             // Show typing indicator when session is actively working
-                            if session.state == .running || session.state == .inProgress || session.state == .queued {
+                            if showsTypingIndicator {
                                 TypingIndicatorView()
                                     .id("typing-indicator")
                             }
                         }
                         .padding(.vertical)
                     }
+                    .refreshable {
+                        await viewModel.manualRefresh()
+                    }
+                    .accessibilityIdentifier("chat.scroll")
                     .onAppear {
                         // Initial scroll to bottom when opening session
                         scrollToBottom(proxy: proxy)
                     }
-                    .onChange(of: viewModel.isLoading) { _, isLoading in
-                        // Scroll to bottom after activities finish loading
-                        if !isLoading {
-                            scrollToBottom(proxy: proxy)
-                        }
-                    }
-                    .onChange(of: session.activities.count) { oldValue, newValue in
+                    .onChange(of: displayedActivities.count) { oldValue, newValue in
                         // Scroll when new activities are added
                         guard newValue > oldValue else { return }
                         scrollToBottom(proxy: proxy)
                     }
                 }
 
-                if viewModel.isLoading && session.activities.isEmpty {
+                if viewModel.isLoading && displayedActivities.isEmpty {
                     ProgressView("Loading activities...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color.joolsBackground)
                 }
 
-                if !viewModel.isLoading && session.activities.isEmpty {
-                    EmptyActivitiesView()
+                if !viewModel.isLoading && displayedActivities.isEmpty {
+                    EmptyActivitiesView(
+                        state: session.state,
+                        syncState: viewModel.syncState,
+                        onRetry: {
+                            Task {
+                                await viewModel.manualRefresh()
+                            }
+                        }
+                    )
                 }
             }
 
@@ -71,6 +102,19 @@ struct ChatView: View {
             ChatInputBar(viewModel: viewModel, sessionId: session.id)
         }
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task {
+                        await viewModel.manualRefresh()
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .disabled(viewModel.isSyncing)
+                .accessibilityIdentifier("chat.refresh")
+            }
+        }
         .alert("Error", isPresented: $viewModel.showError) {
             Button("OK") {}
         } message: {
@@ -85,9 +129,29 @@ struct ChatView: View {
         }
         .onAppear {
             configureViewModel()
-            dependencies.pollingService.startPolling(sessionId: session.id)
+            guard !dependencies.isUITestMode else { return }
+
+            dependencies.pollingService.startPolling(
+                sessionId: session.id,
+                initialActivityCreateTime: viewModel.latestKnownActivityCreateTime()
+            )
             Task {
                 await viewModel.loadActivities()
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard !dependencies.isUITestMode else { return }
+            switch newPhase {
+            case .active:
+                Task {
+                    await viewModel.handleForegroundResume()
+                }
+            case .background:
+                dependencies.pollingService.enterBackground()
+            case .inactive:
+                break
+            @unknown default:
+                break
             }
         }
         .onDisappear {
@@ -96,16 +160,71 @@ struct ChatView: View {
     }
 
     private var sortedActivities: [ActivityEntity] {
-        session.activities.sorted { $0.createdAt < $1.createdAt }
+        activities.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private var displayedActivities: [ActivityEntity] {
+        let liveSortedActivities = session.activities.sorted { $0.createdAt < $1.createdAt }
+        return sortedActivities.isEmpty ? liveSortedActivities : sortedActivities
+    }
+
+    private var latestProgressActivity: ActivityEntity? {
+        displayedActivities.last(where: { $0.type == .progressUpdated })
+    }
+
+    private var latestPlanStep: PlanStepDTO? {
+        guard let steps = displayedActivities.last(where: { $0.type == .planGenerated })?.plan?.steps, !steps.isEmpty else {
+            return nil
+        }
+
+        return steps.first(where: { ($0.status ?? "").lowercased() == "in_progress" })
+            ?? steps.first(where: { ($0.status ?? "").lowercased() == "pending" })
+            ?? steps.last
+    }
+
+    private var currentStepTitle: String? {
+        switch session.state {
+        case .awaitingPlanApproval:
+            return latestPlanStep?.title ?? "Review the generated plan"
+        case .awaitingUserInput:
+            return "Jules is waiting for your input"
+        case .running, .inProgress, .queued:
+            return latestProgressActivity?.progressTitle ?? latestProgressActivity?.messageContent
+        case .completed:
+            return "Session completed"
+        case .failed:
+            return "Session failed"
+        case .cancelled:
+            return "Session cancelled"
+        case .unspecified:
+            return nil
+        }
+    }
+
+    private var currentStepDescription: String? {
+        switch session.state {
+        case .awaitingPlanApproval:
+            return latestPlanStep?.description
+        case .awaitingUserInput:
+            return "Open the latest Jules message below and reply to continue."
+        case .running, .inProgress, .queued:
+            return latestProgressActivity?.progressDescription
+        case .completed, .failed, .cancelled, .unspecified:
+            return nil
+        }
+    }
+
+    private var showsTypingIndicator: Bool {
+        session.state == .running || session.state == .inProgress || session.state == .queued
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy) {
         // Prefer typing indicator if visible, otherwise last activity
-        if session.state == .running || session.state == .inProgress || session.state == .queued {
+        if showsTypingIndicator {
             withAnimation(.easeOut(duration: 0.3)) {
                 proxy.scrollTo("typing-indicator", anchor: .bottom)
             }
-        } else if let lastActivity = sortedActivities.last {
+        } else if let lastActivity = displayedActivities.last {
             withAnimation(.easeOut(duration: 0.3)) {
                 proxy.scrollTo(lastActivity.id, anchor: .bottom)
             }
@@ -125,20 +244,30 @@ struct ChatView: View {
 // MARK: - Empty State
 
 struct EmptyActivitiesView: View {
+    let state: SessionState
+    let syncState: SessionSyncState
+    let onRetry: () -> Void
+
     var body: some View {
         VStack(spacing: JoolsSpacing.md) {
             Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 48))
                 .foregroundStyle(Color.joolsAccent.opacity(0.5))
 
-            Text("No messages yet")
+            Text(state.isActive ? "Waiting for activity" : "No messages yet")
                 .font(.joolsHeadline)
                 .foregroundStyle(.secondary)
 
-            Text("Jules is working on your task.\nMessages will appear here.")
+            Text(syncState.message ?? "Jules is syncing this session. Pull to refresh if the timeline looks stale.")
                 .font(.joolsCaption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
+
+            if syncState.canRetry {
+                Button("Tap to retry", action: onRetry)
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("chat.retry")
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -302,6 +431,7 @@ struct ChatInputBar: View {
                 .padding(.vertical, JoolsSpacing.xs)
                 .background(Color.joolsSurface)
                 .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.lg))
+                .accessibilityIdentifier("chat.input")
                 .onSubmit {
                     if viewModel.canSend {
                         viewModel.sendMessage(sessionId: sessionId)
@@ -320,6 +450,7 @@ struct ChatInputBar: View {
                 }
             }
             .disabled(!viewModel.canSend)
+            .accessibilityIdentifier("chat.send")
         }
         .padding(.horizontal)
         .padding(.vertical, JoolsSpacing.sm)
@@ -388,6 +519,7 @@ struct WorkingCard: View {
             Spacer(minLength: 40)
         }
         .padding(.horizontal, JoolsSpacing.md)
+        .accessibilityIdentifier("chat.working-card")
     }
 }
 

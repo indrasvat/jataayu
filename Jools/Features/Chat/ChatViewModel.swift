@@ -2,6 +2,36 @@ import SwiftUI
 import SwiftData
 import Combine
 import JoolsKit
+import os
+
+enum SessionSyncState: Equatable {
+    case idle
+    case syncing
+    case stale(message: String)
+    case failed(message: String)
+
+    var message: String? {
+        switch self {
+        case .idle, .syncing:
+            return nil
+        case .stale(let message), .failed(let message):
+            return message
+        }
+    }
+
+    var canRetry: Bool {
+        switch self {
+        case .stale, .failed:
+            return true
+        case .idle, .syncing:
+            return false
+        }
+    }
+}
+
+private struct SessionUpdateOutcome {
+    let stateChanged: Bool
+}
 
 /// View model for the chat view
 @MainActor
@@ -15,17 +45,35 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
     @Published var messageSentConfirmation: Bool = false
     @Published var error: String?
     @Published var showError: Bool = false
+    @Published var syncState: SessionSyncState = .idle
+    @Published var lastSuccessfulSyncAt: Date?
 
     // MARK: - Dependencies
 
+    private let logger = Logger(subsystem: "com.indrasvat.jools", category: "ChatViewModel")
     private var apiClient: APIClient?
     private var modelContext: ModelContext?
     private var pollingService: PollingService?
     private var sessionId: String?
     private var cancellables = Set<AnyCancellable>()
+    private var refreshTask: Task<Void, Never>?
+    private var optimisticReconciliationTasks: [String: Task<Void, Never>] = [:]
+    private var lastStaleRecoveryAt: Date?
 
     var canSend: Bool {
         !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending
+    }
+
+    var isSyncing: Bool {
+        if case .syncing = syncState {
+            return true
+        }
+        return false
+    }
+
+    deinit {
+        refreshTask?.cancel()
+        optimisticReconciliationTasks.values.forEach { $0.cancel() }
     }
 
     // MARK: - Setup
@@ -41,32 +89,100 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
         self.pollingService = pollingService
         self.sessionId = sessionId
 
-        // Set self as delegate
         pollingService.delegate = self
+        pollingService.updateActivityCursor(latestKnownActivityCreateTime())
 
-        // Observe polling state
         pollingService.$isPolling
             .receive(on: DispatchQueue.main)
             .assign(to: &$isPolling)
+
+        applyUITestOverrides()
     }
 
-    // MARK: - Initial Load
+    func latestKnownActivityCreateTime() -> Date? {
+        guard let session = persistedSession() else { return nil }
+        return session.activities
+            .filter { !$0.isOptimistic }
+            .map(\.createdAt)
+            .max()
+    }
+
+    // MARK: - Refresh
 
     func loadActivities() async {
+        await refreshSession(reason: .initialLoad, hardRefresh: true)
+    }
+
+    func manualRefresh() async {
+        pollingService?.triggerImmediatePoll(reason: .manualRefresh)
+        await refreshSession(reason: .manualRefresh, hardRefresh: true)
+    }
+
+    func handleForegroundResume() async {
+        pollingService?.enterForeground()
+        await refreshSession(reason: .foregroundResume, hardRefresh: true)
+    }
+
+    private func refreshSession(reason: PollingRefreshReason, hardRefresh: Bool) async {
+        refreshTask?.cancel()
+
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performRefresh(reason: reason, hardRefresh: hardRefresh)
+        }
+
+        refreshTask = task
+        await task.value
+
+        if refreshTask?.isCancelled == false {
+            refreshTask = nil
+        }
+    }
+
+    private func performRefresh(reason: PollingRefreshReason, hardRefresh: Bool) async {
         guard let apiClient, let sessionId, let modelContext else { return }
 
-        isLoading = true
-        defer { isLoading = false }
+        let shouldBlockLoad = !hasPersistedActivities()
+        if shouldBlockLoad {
+            isLoading = true
+        }
+        syncState = .syncing
+
+        defer {
+            if shouldBlockLoad {
+                isLoading = false
+            }
+        }
 
         do {
-            let response = try await apiClient.listActivities(sessionId: sessionId, pageSize: 50)
-            syncActivities(response.allItems, sessionId: sessionId, modelContext: modelContext)
-        } catch NetworkError.notFound {
-            // Newly created sessions may not have activities yet - this is not an error
-            // The polling service will fetch activities as they become available
+            let session = try await apiClient.getSession(id: sessionId)
+            let activities: [ActivityDTO]
+            do {
+                if hardRefresh {
+                    activities = try await apiClient.listAllActivities(sessionId: sessionId, pageSize: 100)
+                } else {
+                    activities = try await apiClient.listAllActivities(
+                        sessionId: sessionId,
+                        pageSize: 100,
+                        createTime: latestKnownActivityCreateTime()
+                    )
+                }
+            } catch NetworkError.notFound {
+                activities = []
+            }
+
+            try Task.checkCancellation()
+
+            let outcome = updateSession(session, sessionId: sessionId, modelContext: modelContext)
+            syncActivities(activities, sessionId: sessionId, modelContext: modelContext)
+            if let latestCreateTime = activities.compactMap(\.createTime).max() {
+                pollingService?.updateActivityCursor(latestCreateTime)
+            }
+            handleSuccessfulSync(reason: reason, receivedActivities: activities, stateChanged: outcome.stateChanged)
+        } catch is CancellationError {
+            logger.debug("Cancelled refresh for \(reason.rawValue, privacy: .public)")
         } catch {
-            self.error = error.localizedDescription
-            self.showError = true
+            handleSyncFailure(error, reason: reason)
         }
     }
 
@@ -80,14 +196,9 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
 
         HapticManager.shared.lightImpact()
 
-        // Create optimistic activity
         let optimisticActivity = ActivityEntity(optimisticMessage: message)
 
-        // Find session and attach activity
-        let descriptor = FetchDescriptor<SessionEntity>(
-            predicate: #Predicate { $0.id == sessionId }
-        )
-        if let session = try? modelContext.fetch(descriptor).first {
+        if let session = persistedSession(sessionId: sessionId) {
             optimisticActivity.session = session
             modelContext.insert(optimisticActivity)
             try? modelContext.save()
@@ -99,29 +210,33 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
 
             do {
                 try await apiClient.sendMessage(sessionId: sessionId, message: message)
-
-                // Update optimistic activity status
                 optimisticActivity.sendStatusRaw = SendStatus.sent.rawValue
                 try? modelContext.save()
 
-                // Show brief confirmation
-                self.messageSentConfirmation = true
+                messageSentConfirmation = true
                 Task {
                     try? await Task.sleep(for: .seconds(2))
-                    self.messageSentConfirmation = false
+                    await MainActor.run {
+                        self.messageSentConfirmation = false
+                    }
                 }
 
-                // Trigger immediate poll to get agent response
-                pollingService?.triggerImmediatePoll()
+                syncState = .syncing
+                pollingService?.triggerImmediatePoll(reason: .userMessageSent)
+                scheduleOptimisticReconciliation(
+                    activityId: optimisticActivity.id,
+                    expectedMessage: message,
+                    sessionId: sessionId
+                )
 
                 HapticManager.shared.success()
             } catch {
-                // Mark as failed
                 optimisticActivity.sendStatusRaw = SendStatus.failed.rawValue
                 try? modelContext.save()
 
                 self.error = error.localizedDescription
                 self.showError = true
+                self.syncState = .failed(message: "Message failed to send.")
 
                 HapticManager.shared.error()
             }
@@ -134,15 +249,16 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
         guard let apiClient, let sessionId else { return }
 
         HapticManager.shared.success()
+        syncState = .syncing
 
         Task {
             do {
                 try await apiClient.approvePlan(sessionId: sessionId)
-                // Trigger poll to get updated state
-                pollingService?.triggerImmediatePoll()
+                pollingService?.triggerImmediatePoll(reason: .planApproved)
             } catch {
                 self.error = error.localizedDescription
                 self.showError = true
+                self.syncState = .failed(message: "Plan approval did not reach Jules.")
                 HapticManager.shared.error()
             }
         }
@@ -152,18 +268,19 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
         guard let apiClient, let sessionId else { return }
 
         HapticManager.shared.warning()
+        syncState = .syncing
 
-        // Rejecting a plan is done by sending a message asking Jules to revise
         Task {
             do {
                 try await apiClient.sendMessage(
                     sessionId: sessionId,
                     message: "Please revise this plan. I'd like to discuss changes before proceeding."
                 )
-                pollingService?.triggerImmediatePoll()
+                pollingService?.triggerImmediatePoll(reason: .userMessageSent)
             } catch {
                 self.error = error.localizedDescription
                 self.showError = true
+                self.syncState = .failed(message: "Plan revision request did not reach Jules.")
                 HapticManager.shared.error()
             }
         }
@@ -171,61 +288,59 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
 
     // MARK: - PollingServiceDelegate
 
-    nonisolated func pollingService(_ service: PollingService, didUpdateSession session: SessionDTO) {
+    nonisolated func pollingService(_ service: PollingService, didUpdateSession session: SessionDTO, reason: PollingRefreshReason) {
         Task { @MainActor in
             guard let modelContext, let sessionId = self.sessionId else { return }
-            updateSession(session, sessionId: sessionId, modelContext: modelContext)
+            let outcome = updateSession(session, sessionId: sessionId, modelContext: modelContext)
+            if outcome.stateChanged && shouldTriggerStaleRecovery(for: session) {
+                await triggerStaleRecoveryIfNeeded()
+            }
         }
     }
 
-    nonisolated func pollingService(_ service: PollingService, didUpdateActivities activities: [ActivityDTO]) {
+    nonisolated func pollingService(_ service: PollingService, didUpdateActivities activities: [ActivityDTO], reason: PollingRefreshReason) {
         Task { @MainActor in
             guard let modelContext, let sessionId = self.sessionId else { return }
             syncActivities(activities, sessionId: sessionId, modelContext: modelContext)
+            if let latestCreateTime = activities.compactMap(\.createTime).max() {
+                service.updateActivityCursor(latestCreateTime)
+            }
+            handleSuccessfulSync(reason: reason, receivedActivities: activities, stateChanged: false)
         }
     }
 
-    nonisolated func pollingService(_ service: PollingService, didEncounterError error: Error) {
+    nonisolated func pollingService(_ service: PollingService, didEncounterError error: Error, reason: PollingRefreshReason) {
         Task { @MainActor in
-            // Don't show transient polling errors to user unless critical
-            print("Polling error: \(error.localizedDescription)")
+            self.handleSyncFailure(error, reason: reason)
         }
     }
 
     // MARK: - SwiftData Sync
 
     private func syncActivities(_ dtos: [ActivityDTO], sessionId: String, modelContext: ModelContext) {
-        // Find the session
-        let sessionDescriptor = FetchDescriptor<SessionEntity>(
-            predicate: #Predicate { $0.id == sessionId }
-        )
-        guard let session = try? modelContext.fetch(sessionDescriptor).first else { return }
+        guard let session = persistedSession(sessionId: sessionId) else { return }
 
-        // Get existing activities as a dictionary for quick lookup
         let existingActivities = Dictionary(
             uniqueKeysWithValues: session.activities.filter { !$0.isOptimistic }.map { ($0.id, $0) }
         )
 
-        // Get optimistic user messages for deduplication
         let optimisticMessages = session.activities.filter { $0.isOptimistic && $0.type == .userMessaged }
 
         for dto in dtos {
             if let existing = existingActivities[dto.id] {
-                // Update existing activity with fresh content (includes artifacts)
                 if let contentData = try? JSONEncoder().encode(dto.content) {
                     existing.contentJSON = contentData
                 }
+                existing.createdAt = dto.createTime ?? existing.createdAt
             } else {
-                // Check if this is a user message that matches an optimistic one
                 if dto.activityType == .userMessaged,
-                   let serverMessage = dto.userMessaged?.userMessage {
-                    // Find and remove matching optimistic message
-                    if let optimistic = optimisticMessages.first(where: { $0.messageContent == serverMessage }) {
-                        modelContext.delete(optimistic)
-                    }
+                   let serverMessage = dto.userMessaged?.userMessage,
+                   let optimistic = optimisticMessages.first(where: { $0.messageContent == serverMessage }) {
+                    optimisticReconciliationTasks[optimistic.id]?.cancel()
+                    optimisticReconciliationTasks[optimistic.id] = nil
+                    modelContext.delete(optimistic)
                 }
 
-                // Insert new activity
                 let activity = ActivityEntity(from: dto)
                 activity.session = session
                 modelContext.insert(activity)
@@ -235,13 +350,12 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
         try? modelContext.save()
     }
 
-    private func updateSession(_ dto: SessionDTO, sessionId: String, modelContext: ModelContext) {
-        let descriptor = FetchDescriptor<SessionEntity>(
-            predicate: #Predicate { $0.id == sessionId }
-        )
-        guard let session = try? modelContext.fetch(descriptor).first else { return }
+    private func updateSession(_ dto: SessionDTO, sessionId: String, modelContext: ModelContext) -> SessionUpdateOutcome {
+        guard let session = persistedSession(sessionId: sessionId) else {
+            return SessionUpdateOutcome(stateChanged: false)
+        }
 
-        // Update session state
+        let previousState = session.stateRaw
         session.stateRaw = dto.state ?? session.stateRaw
         session.updatedAt = dto.updateTime ?? Date()
 
@@ -252,5 +366,117 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
         }
 
         try? modelContext.save()
+        return SessionUpdateOutcome(stateChanged: previousState != session.stateRaw)
+    }
+
+    // MARK: - Private Helpers
+
+    private func persistedSession(sessionId: String? = nil) -> SessionEntity? {
+        guard let modelContext, let sessionId = sessionId ?? self.sessionId else { return nil }
+        let descriptor = FetchDescriptor<SessionEntity>(
+            predicate: #Predicate { $0.id == sessionId }
+        )
+        return try? modelContext.fetch(descriptor).first
+    }
+
+    private func hasPersistedActivities() -> Bool {
+        !(persistedSession()?.activities.isEmpty ?? true)
+    }
+
+    private func handleSuccessfulSync(
+        reason: PollingRefreshReason,
+        receivedActivities: [ActivityDTO],
+        stateChanged: Bool
+    ) {
+        lastSuccessfulSyncAt = Date()
+        syncState = .idle
+
+        if stateChanged && receivedActivities.isEmpty {
+            logger.debug("State changed without new activities for \(reason.rawValue, privacy: .public)")
+        }
+    }
+
+    private func handleSyncFailure(_ error: Error, reason: PollingRefreshReason) {
+        logger.error("Sync failure for \(reason.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+
+        if hasPersistedActivities() {
+            syncState = .stale(message: "Showing the last synced timeline. Pull to refresh or tap to retry.")
+        } else {
+            syncState = .failed(message: "Couldn’t load this session. Tap to retry.")
+        }
+
+        if reason == .manualRefresh || reason == .foregroundResume {
+            self.error = error.localizedDescription
+            self.showError = true
+        }
+    }
+
+    private func scheduleOptimisticReconciliation(
+        activityId: String,
+        expectedMessage: String,
+        sessionId: String
+    ) {
+        optimisticReconciliationTasks[activityId]?.cancel()
+        optimisticReconciliationTasks[activityId] = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .seconds(15))
+            await MainActor.run {
+                self.syncState = .syncing
+            }
+            await self.refreshSession(reason: .staleRecovery, hardRefresh: true)
+
+            await MainActor.run {
+                guard let session = self.persistedSession(sessionId: sessionId),
+                      let optimistic = session.activities.first(where: {
+                          $0.id == activityId && $0.isOptimistic && $0.messageContent == expectedMessage
+                      }) else {
+                    self.optimisticReconciliationTasks[activityId] = nil
+                    return
+                }
+
+                optimistic.sendStatusRaw = SendStatus.failed.rawValue
+                try? self.modelContext?.save()
+                self.syncState = .failed(message: "The sent message never reconciled with Jules. Tap to retry.")
+                self.optimisticReconciliationTasks[activityId] = nil
+            }
+        }
+    }
+
+    private func shouldTriggerStaleRecovery(for session: SessionDTO) -> Bool {
+        guard let state = session.state.flatMap({ SessionState(rawValue: $0) }) else {
+            return false
+        }
+
+        switch state {
+        case .running, .inProgress, .awaitingPlanApproval, .awaitingUserInput, .completed:
+            return true
+        case .queued, .failed, .cancelled, .unspecified:
+            return false
+        }
+    }
+
+    private func triggerStaleRecoveryIfNeeded() async {
+        let now = Date()
+        if let lastStaleRecoveryAt, now.timeIntervalSince(lastStaleRecoveryAt) < 5 {
+            return
+        }
+        lastStaleRecoveryAt = now
+        await refreshSession(reason: .staleRecovery, hardRefresh: true)
+    }
+
+    private func applyUITestOverrides() {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["JOOLS_UI_TEST_MODE"] == "1" else { return }
+
+        lastSuccessfulSyncAt = Date().addingTimeInterval(-45)
+
+        switch environment["JOOLS_UI_TEST_SYNC_STATE"] {
+        case "stale":
+            syncState = .stale(message: "Showing the last synced timeline. Pull to refresh or tap to retry.")
+        case "failed":
+            syncState = .failed(message: "Couldn’t load this session. Tap to retry.")
+        default:
+            syncState = .idle
+        }
     }
 }

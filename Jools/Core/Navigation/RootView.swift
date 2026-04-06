@@ -3,6 +3,7 @@ import SwiftUI
 /// Root view that handles authentication state and main navigation
 struct RootView: View {
     @EnvironmentObject private var dependencies: AppDependency
+    @Environment(\.scenePhase) private var scenePhase
     @State private var coordinator = AppCoordinator()
 
     var body: some View {
@@ -15,6 +16,18 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: dependencies.isAuthenticated)
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                dependencies.pollingService.enterForeground()
+            case .background:
+                dependencies.pollingService.enterBackground()
+            case .inactive:
+                break
+            @unknown default:
+                break
+            }
+        }
     }
 }
 
@@ -51,18 +64,21 @@ struct MainTabView: View {
                     Label(Tab.dashboard.title, systemImage: Tab.dashboard.icon)
                 }
                 .tag(Tab.dashboard)
+                .accessibilityIdentifier("tab.dashboard")
 
             SessionsListView()
                 .tabItem {
                     Label(Tab.sessions.title, systemImage: Tab.sessions.icon)
                 }
                 .tag(Tab.sessions)
+                .accessibilityIdentifier("tab.sessions")
 
             SettingsView()
                 .tabItem {
                     Label(Tab.settings.title, systemImage: Tab.settings.icon)
                 }
                 .tag(Tab.settings)
+                .accessibilityIdentifier("tab.settings")
         }
         .tint(.joolsAccent)
     }

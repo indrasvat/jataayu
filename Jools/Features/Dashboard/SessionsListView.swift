@@ -29,6 +29,8 @@ struct SessionsListView: View {
                     } label: {
                         SessionListRow(session: session)
                     }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("session.row.\(session.id)")
                 }
             }
             .listStyle(.plain)
@@ -40,6 +42,7 @@ struct SessionsListView: View {
                         Image(systemName: "arrow.clockwise")
                     }
                     .disabled(isLoading)
+                    .accessibilityIdentifier("sessions.refresh")
                 }
             }
             .refreshable {
@@ -58,11 +61,13 @@ struct SessionsListView: View {
             }
         }
         .task {
+            guard !dependencies.isUITestMode else { return }
             await refreshSessions()
         }
     }
 
     private func refreshSessions() async {
+        guard !dependencies.isUITestMode else { return }
         guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
@@ -135,6 +140,8 @@ struct SessionListRow: View {
             .foregroundStyle(.tertiary)
         }
         .padding(.vertical, JoolsSpacing.xs)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("session.row.content.\(session.id)")
     }
 }
 

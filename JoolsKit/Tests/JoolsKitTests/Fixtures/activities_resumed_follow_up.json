@@ -1,0 +1,59 @@
+{
+  "activities": [
+    {
+      "name": "sessions/1537655633111249109/activities/a1",
+      "id": "a1",
+      "createTime": "2026-04-05T20:19:51.123456Z",
+      "originator": "user",
+      "userMessaged": {
+        "userMessage": "Thanks. One follow-up: what are the main data models?"
+      }
+    },
+    {
+      "name": "sessions/1537655633111249109/activities/a2",
+      "id": "a2",
+      "createTime": "2026-04-05T20:20:03.987654Z",
+      "originator": "agent",
+      "planGenerated": {
+        "plan": {
+          "id": "plan-1",
+          "steps": [
+            {
+              "id": "step-1",
+              "title": "Inspect model layer",
+              "description": "Read the primary data models in the repo.",
+              "status": "COMPLETED",
+              "index": 1
+            },
+            {
+              "id": "step-2",
+              "title": "Provide the summary to the user",
+              "description": "Reply to the user directly in chat with the data model overview.",
+              "status": "IN_PROGRESS",
+              "index": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "sessions/1537655633111249109/activities/a3",
+      "id": "a3",
+      "createTime": "2026-04-05T20:20:09.000000Z",
+      "originator": "agent",
+      "progressUpdated": {
+        "title": "Provide the summary to the user",
+        "description": "Reply to the user directly in chat with the data model overview."
+      }
+    },
+    {
+      "name": "sessions/1537655633111249109/activities/a4",
+      "id": "a4",
+      "createTime": "2026-04-05T20:20:11.000000Z",
+      "originator": "agent",
+      "agentMessaged": {
+        "agentMessage": "The models are ItemBase, Story, and Comment."
+      }
+    }
+  ]
+}

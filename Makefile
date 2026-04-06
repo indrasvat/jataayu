@@ -20,6 +20,8 @@ BUILD_DIR        := .build
 COVERAGE_DIR     := $(BUILD_DIR)/coverage
 # Screenshot output path - override with: make sim-screenshot SCREENSHOT=/path/to/file.png
 SCREENSHOT       ?= /tmp/jools_screenshot.png
+SCREENSHOT_DIR   ?= $(BUILD_DIR)/screenshots
+AXE              := $(shell command -v axe 2>/dev/null)
 
 # Tools
 BREW             := $(shell command -v brew 2>/dev/null)
@@ -64,7 +66,7 @@ HOOK_ICON        := 🪝
         ci pre-push hooks-install hooks-uninstall \
         status diff log \
         sim-list sim-boot sim-build sim-run sim-install sim-launch sim-kill sim-logs sim-shutdown \
-        sim-reload sim-screenshot
+        sim-reload sim-screenshot ui-test sim-ui-smoke sim-screenshot-bundle verify-live-session
 
 .DEFAULT_GOAL := help
 
@@ -240,6 +242,23 @@ test-app: ## Run iOS app tests
 		-configuration Debug \
 		test
 	@echo "$(GREEN)$(CHECK) App tests passed$(RESET)"
+
+ui-test: ## Run deterministic Jools UI tests
+	@echo "$(BOLD)$(TEST_ICON) Running Jools UI tests...$(RESET)"
+	@set -o pipefail && xcodebuild \
+		-project $(PROJECT) \
+		-scheme $(SCHEME) \
+		-destination "$(DESTINATION)" \
+		-configuration Debug \
+		-only-testing:JoolsUITests \
+		test 2>&1 | xcpretty || xcodebuild \
+		-project $(PROJECT) \
+		-scheme $(SCHEME) \
+		-destination "$(DESTINATION)" \
+		-configuration Debug \
+		-only-testing:JoolsUITests \
+		test
+	@echo "$(GREEN)$(CHECK) UI tests passed$(RESET)"
 
 coverage: ## Run tests with coverage report
 	@echo "$(BOLD)$(TEST_ICON) Running tests with coverage...$(RESET)"
@@ -462,3 +481,27 @@ sim-screenshot: ## Take simulator screenshot (override path: SCREENSHOT=/path/to
 	@echo "$(BOLD)📸 Taking screenshot...$(RESET)"
 	@xcrun simctl io booted screenshot "$(SCREENSHOT)"
 	@echo "$(GREEN)$(CHECK) Screenshot saved to $(SCREENSHOT)$(RESET)"
+
+sim-ui-smoke: ## Capture current simulator UI using AXe
+ifndef AXE
+	$(error "$(RED)$(CROSS) axe not found. Install with 'brew install axe'$(RESET)")
+endif
+	@echo "$(BOLD)$(TEST_ICON) Describing simulator UI with AXe...$(RESET)"
+	@axe describe-ui
+
+sim-screenshot-bundle: ## Capture a timestamped screenshot bundle into SCREENSHOT_DIR
+	@mkdir -p "$(SCREENSHOT_DIR)"
+	@STAMP=$$(date +%Y%m%d-%H%M%S); \
+	OUT="$(SCREENSHOT_DIR)/jools-$$STAMP.png"; \
+	echo "$(BOLD)📸 Saving screenshot to $$OUT$(RESET)"; \
+	xcrun simctl io booted screenshot "$$OUT" >/dev/null; \
+	echo "$(GREEN)$(CHECK) Screenshot saved to $$OUT$(RESET)"
+
+verify-live-session: ## Print the manual live-session verification checklist
+	@echo "$(BOLD)$(TEST_ICON) Live Jules verification checklist$(RESET)"
+	@echo "  1. Open the hews session in Jools and in jules.google.com."
+	@echo "  2. Send a follow-up from Jools and confirm the optimistic bubble appears immediately."
+	@echo "  3. Confirm the session header changes to Running and the prior timeline remains visible."
+	@echo "  4. Confirm the banner shows the current step title and description."
+	@echo "  5. Background and foreground the app; verify the session catches up without relaunch."
+	@echo "  6. Capture screenshots before send, while running, and after the final answer arrives."

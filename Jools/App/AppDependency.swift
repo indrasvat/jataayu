@@ -11,6 +11,7 @@ final class AppDependency: ObservableObject {
     let apiClient: APIClient
     let pollingService: PollingService
     let modelContainer: ModelContainer
+    let isUITestMode: Bool
 
     // MARK: - State
 
@@ -19,8 +20,13 @@ final class AppDependency: ObservableObject {
     // MARK: - Initialization
 
     init() {
+        let environment = ProcessInfo.processInfo.environment
+        self.isUITestMode = environment["JOOLS_UI_TEST_MODE"] == "1"
+
         // Initialize keychain manager
-        self.keychainManager = KeychainManager()
+        self.keychainManager = KeychainManager(
+            service: isUITestMode ? "com.indrasvat.jools.ui-tests" : "com.jools.app"
+        )
 
         // Initialize API client
         self.apiClient = APIClient(keychain: keychainManager)
@@ -37,7 +43,7 @@ final class AppDependency: ObservableObject {
             ])
             let modelConfiguration = ModelConfiguration(
                 schema: schema,
-                isStoredInMemoryOnly: false
+                isStoredInMemoryOnly: isUITestMode
             )
             self.modelContainer = try ModelContainer(
                 for: schema,
@@ -48,7 +54,12 @@ final class AppDependency: ObservableObject {
         }
 
         // Check if user is authenticated
-        self.isAuthenticated = keychainManager.hasAPIKey()
+        if isUITestMode {
+            self.isAuthenticated = true
+            seedUITestData(scenario: environment["JOOLS_UI_TEST_SCENARIO"] ?? "running-session")
+        } else {
+            self.isAuthenticated = keychainManager.hasAPIKey()
+        }
     }
 
     // MARK: - Authentication
@@ -76,5 +87,96 @@ final class AppDependency: ObservableObject {
         try keychainManager.deleteAPIKey()
         isAuthenticated = false
         pollingService.stopPolling()
+    }
+
+    // MARK: - UI Testing
+
+    private func seedUITestData(scenario: String) {
+        let context = modelContainer.mainContext
+
+        let session = SessionEntity(
+            id: "ui-session-\(scenario)",
+            title: scenario == "stale-session" ? "UI Test Stale Session" : "UI Test Running Session",
+            prompt: "Validate the session recovery UI",
+            state: scenario == "stale-session" ? .inProgress : .awaitingPlanApproval,
+            sourceId: "sources/github/indrasvat/hews",
+            sourceBranch: "main",
+            automationMode: .autoCreatePR,
+            requirePlanApproval: true,
+            createdAt: Date().addingTimeInterval(-600),
+            updatedAt: Date().addingTimeInterval(-30)
+        )
+        context.insert(session)
+
+        let activities = uiTestActivities(for: scenario)
+        for activity in activities {
+            activity.session = session
+            context.insert(activity)
+        }
+
+        try? context.save()
+    }
+
+    private func uiTestActivities(for scenario: String) -> [ActivityEntity] {
+        let planContent = ActivityContentDTO(
+            plan: PlanDTO(
+                id: "plan-ui",
+                steps: [
+                    PlanStepDTO(
+                        id: "step-1",
+                        title: "Inspect the model layer",
+                        description: "Check the session detail view and keep the cached timeline visible while syncing.",
+                        status: "COMPLETED",
+                        index: 1
+                    ),
+                    PlanStepDTO(
+                        id: "step-2",
+                        title: "Provide the summary to the user",
+                        description: "Reply directly in chat once the analysis is ready.",
+                        status: "IN_PROGRESS",
+                        index: 2
+                    )
+                ]
+            )
+        )
+
+        let progressContent = ActivityContentDTO(
+            progress: "Provide the summary to the user",
+            progressTitle: "Provide the summary to the user",
+            progressDescription: "Reply directly in chat with the latest findings."
+        )
+
+        let agentContent = ActivityContentDTO(
+            message: scenario == "stale-session"
+                ? "The cached timeline should remain visible while the app attempts to recover."
+                : "The session view now shows the latest working step instead of a generic loading banner."
+        )
+
+        return [
+            ActivityEntity(
+                id: "ui-user-message-\(scenario)",
+                type: .userMessaged,
+                createdAt: Date().addingTimeInterval(-540),
+                contentJSON: (try? JSONEncoder().encode(ActivityContentDTO(message: "Can you summarize the repo status?"))) ?? Data()
+            ),
+            ActivityEntity(
+                id: "ui-plan-\(scenario)",
+                type: .planGenerated,
+                createdAt: Date().addingTimeInterval(-420),
+                contentJSON: (try? JSONEncoder().encode(planContent)) ?? Data()
+            ),
+            ActivityEntity(
+                id: "ui-progress-\(scenario)",
+                type: .progressUpdated,
+                createdAt: Date().addingTimeInterval(-120),
+                contentJSON: (try? JSONEncoder().encode(progressContent)) ?? Data()
+            ),
+            ActivityEntity(
+                id: "ui-agent-\(scenario)",
+                type: .agentMessaged,
+                createdAt: Date().addingTimeInterval(-60),
+                contentJSON: (try? JSONEncoder().encode(agentContent)) ?? Data()
+            )
+        ]
     }
 }

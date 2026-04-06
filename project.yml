@@ -27,35 +27,21 @@ targets:
           - "**/.DS_Store"
     dependencies:
       - package: JoolsKit
-    preBuildScripts:
-      - name: Generate Build Info
+    postBuildScripts:
+      - name: Inject Build Metadata
         script: |
-          # Generate BuildInfo.swift with git SHA and build date
-          OUTPUT_FILE="${SRCROOT}/Jools/Core/BuildInfo.swift"
+          INFO_PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
           GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
           GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
           BUILD_DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
 
-          cat > "$OUTPUT_FILE" << EOF
-          // Auto-generated file - do not edit
-          import Foundation
+          /usr/libexec/PlistBuddy -c "Delete :JOOLS_GIT_SHA" "$INFO_PLIST" >/dev/null 2>&1 || true
+          /usr/libexec/PlistBuddy -c "Delete :JOOLS_GIT_BRANCH" "$INFO_PLIST" >/dev/null 2>&1 || true
+          /usr/libexec/PlistBuddy -c "Delete :JOOLS_BUILD_DATE" "$INFO_PLIST" >/dev/null 2>&1 || true
 
-          enum BuildInfo {
-              static let gitSHA = "$GIT_SHA"
-              static let gitBranch = "$GIT_BRANCH"
-              static let buildDate = "$BUILD_DATE"
-              static let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-              static let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-
-              static var fullVersion: String {
-                  "\(version) (\(build))"
-              }
-
-              static var debugDescription: String {
-                  "\(fullVersion) • \(gitSHA) • \(gitBranch)"
-              }
-          }
-          EOF
+          /usr/libexec/PlistBuddy -c "Add :JOOLS_GIT_SHA string $GIT_SHA" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Add :JOOLS_GIT_BRANCH string $GIT_BRANCH" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Add :JOOLS_BUILD_DATE string $BUILD_DATE" "$INFO_PLIST"
         basedOnDependencyAnalysis: false
     settings:
       base:
@@ -86,3 +72,17 @@ targets:
         GENERATE_INFOPLIST_FILE: true
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Jools.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Jools"
         BUNDLE_LOADER: "$(TEST_HOST)"
+
+  JoolsUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: JoolsUITests
+        excludes:
+          - "**/.DS_Store"
+    dependencies:
+      - target: Jools
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true
+        TEST_TARGET_NAME: Jools

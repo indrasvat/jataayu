@@ -298,6 +298,11 @@ public struct ActivityContentDTO: Codable, Sendable {
 public struct PlanDTO: Codable, Sendable {
     public let id: String?
     public let steps: [PlanStepDTO]?
+
+    public init(id: String?, steps: [PlanStepDTO]?) {
+        self.id = id
+        self.steps = steps
+    }
 }
 
 /// A step in a plan
@@ -307,6 +312,20 @@ public struct PlanStepDTO: Codable, Sendable {
     public let description: String?
     public let status: String?
     public let index: Int?
+
+    public init(
+        id: String?,
+        title: String?,
+        description: String?,
+        status: String?,
+        index: Int?
+    ) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.status = status
+        self.index = index
+    }
 }
 
 // MARK: - Request DTOs

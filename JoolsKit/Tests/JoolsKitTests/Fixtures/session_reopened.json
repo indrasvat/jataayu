@@ -1,0 +1,17 @@
+{
+  "name": "sessions/1537655633111249109",
+  "id": "1537655633111249109",
+  "title": "Concise Repository Overview and Risk Analysis",
+  "prompt": "Concise repository overview and risk analysis",
+  "state": "IN_PROGRESS",
+  "sourceContext": {
+    "source": "sources/github/indrasvat/hews",
+    "githubRepoContext": {
+      "startingBranch": "main"
+    }
+  },
+  "automationMode": "AUTO_CREATE_PR",
+  "requirePlanApproval": true,
+  "createTime": "2026-04-05T19:59:00.000000Z",
+  "updateTime": "2026-04-05T20:20:12.000000Z"
+}

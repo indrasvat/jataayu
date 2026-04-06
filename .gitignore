@@ -74,3 +74,6 @@ playground.xcworkspace
 # Temporary files
 *.tmp
 *.temp
+
+# Local verification artifacts
+artifacts/
