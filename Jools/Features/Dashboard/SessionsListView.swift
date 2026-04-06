@@ -9,6 +9,9 @@ struct SessionsListView: View {
     @Query(sort: \SessionEntity.updatedAt, order: .reverse) private var sessions: [SessionEntity]
     @State private var searchText: String = ""
     @State private var isLoading = false
+    @State private var pendingDeletion: SessionEntity?
+    @State private var deletionError: String?
+    @State private var showDeletionError = false
 
     private var filteredSessions: [SessionEntity] {
         if searchText.isEmpty {
@@ -31,6 +34,14 @@ struct SessionsListView: View {
                     }
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("session.row.\(session.id)")
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            pendingDeletion = session
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        .accessibilityIdentifier("session.row.delete.\(session.id)")
+                    }
                 }
 
                 if !sessions.isEmpty || !searchText.isEmpty {
@@ -67,6 +78,28 @@ struct SessionsListView: View {
                     ContentUnavailableView.search(text: searchText)
                 }
             }
+            .alert(
+                "Delete this session?",
+                isPresented: Binding(
+                    get: { pendingDeletion != nil },
+                    set: { if !$0 { pendingDeletion = nil } }
+                ),
+                presenting: pendingDeletion
+            ) { session in
+                Button("Delete", role: .destructive) {
+                    Task { await delete(session: session) }
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingDeletion = nil
+                }
+            } message: { session in
+                Text("\"\(session.title)\" will be removed from Jules. This can't be undone.")
+            }
+            .alert("Couldn't delete session", isPresented: $showDeletionError, presenting: deletionError) { _ in
+                Button("OK", role: .cancel) {}
+            } message: { message in
+                Text(message)
+            }
         }
         .task {
             guard !dependencies.isUITestMode else { return }
@@ -86,6 +119,31 @@ struct SessionsListView: View {
             try modelContext.save()
         } catch {
             print("Failed to refresh sessions: \(error)")
+        }
+    }
+
+    private func delete(session: SessionEntity) async {
+        let id = session.id
+        let title = session.title
+        pendingDeletion = nil
+
+        HapticManager.shared.warning()
+
+        do {
+            try await dependencies.apiClient.deleteSession(id: id)
+            modelContext.delete(session)
+            try modelContext.save()
+            HapticManager.shared.success()
+        } catch let NetworkError.notFound {
+            // Already gone server-side; drop the local copy too.
+            modelContext.delete(session)
+            try? modelContext.save()
+        } catch {
+            // Surface the failure but leave the row in place so the
+            // user can retry without losing the entry.
+            deletionError = "Couldn't delete \"\(title)\": \(error.localizedDescription)"
+            showDeletionError = true
+            HapticManager.shared.error()
         }
     }
 
