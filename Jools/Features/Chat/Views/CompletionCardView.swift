@@ -28,6 +28,15 @@ struct CompletionCardView: View {
         activity.messageContent ?? session.title
     }
 
+    /// Parsed unified-diff for the per-file viewer. Pulled directly
+    /// from the activity's gitPatch so we don't pay the parse cost
+    /// unless something actually opens the diff.
+    private var diffFiles: [DiffFile] {
+        activity.gitPatch?.parsedFiles ?? []
+    }
+
+    private var hasDiff: Bool { !diffFiles.isEmpty }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header with success indicator and diff stats
@@ -37,6 +46,11 @@ struct CompletionCardView: View {
 
             // Commit message / summary
             commitSection
+
+            if hasDiff {
+                Divider()
+                viewDiffLink
+            }
 
             Divider()
 
@@ -56,6 +70,37 @@ struct CompletionCardView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.md))
         .padding(.horizontal, JoolsSpacing.md)
+    }
+
+    private var viewDiffLink: some View {
+        NavigationLink {
+            DiffViewerView(title: session.title, files: diffFiles)
+        } label: {
+            HStack(spacing: JoolsSpacing.sm) {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.callout)
+                    .foregroundStyle(Color.joolsAccent)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("View diff")
+                        .font(.joolsBody.weight(.medium))
+                        .foregroundStyle(.primary)
+                    Text("\(diffFiles.count) \(diffFiles.count == 1 ? "file" : "files") — +\(diffStats.additions) / −\(diffStats.deletions)")
+                        .font(.joolsCaption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(JoolsSpacing.md)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("completion.viewDiff")
     }
 
     // MARK: - Subviews

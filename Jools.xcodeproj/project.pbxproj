@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		07336020DE054DE24A450923 /* DiffViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CC78BC417BCF5432142322 /* DiffViewerView.swift */; };
 		0CA7E6DE0147F5D21EB9137F /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7425FDADBB351D82E44BDA8 /* AppCoordinator.swift */; };
 		1003079A28DB81B732A25C31 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05CC0D643717615BFD25DF44 /* RootView.swift */; };
 		113E640740C7E211F8A01D88 /* CreateSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FECDD3C8EC5285EF98459C4B /* CreateSessionViewModel.swift */; };
@@ -71,6 +72,7 @@
 		288FD2F8B8CECF645C9290DF /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
 		2A89CE8F6A2B11FF71A6CACD /* JoolsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JoolsApp.swift; sourceTree = "<group>"; };
 		2C3C647DA5067D0300D2F4A7 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		35CC78BC417BCF5432142322 /* DiffViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffViewerView.swift; sourceTree = "<group>"; };
 		425B67829FCDB7DCDECCB419 /* SessionStatusBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStatusBanner.swift; sourceTree = "<group>"; };
 		4EAAF4A8948E2B9D3ED24714 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		5189B5350A2DE2BCEEA50333 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
@@ -238,6 +240,14 @@
 			);
 			sourceTree = "<group>";
 		};
+		CAD00C3D4B6978B8A5448013 /* Diff */ = {
+			isa = PBXGroup;
+			children = (
+				35CC78BC417BCF5432142322 /* DiffViewerView.swift */,
+			);
+			path = Diff;
+			sourceTree = "<group>";
+		};
 		D4DBD4903F01685D87B3CA2A /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -265,6 +275,7 @@
 			children = (
 				2C3C647DA5067D0300D2F4A7 /* ChatView.swift */,
 				4EAAF4A8948E2B9D3ED24714 /* ChatViewModel.swift */,
+				CAD00C3D4B6978B8A5448013 /* Diff */,
 				D4DBD4903F01685D87B3CA2A /* Views */,
 			);
 			path = Chat;
@@ -441,6 +452,7 @@
 				113E640740C7E211F8A01D88 /* CreateSessionViewModel.swift in Sources */,
 				3EB7A1B655D0AB046BA574F6 /* DashboardView.swift in Sources */,
 				EBFF70E6B7DB3711F0B743D3 /* DashboardViewModel.swift in Sources */,
+				07336020DE054DE24A450923 /* DiffViewerView.swift in Sources */,
 				5AF12302F51A3369C9E8F734 /* Entities.swift in Sources */,
 				EF11B0FB91A8B5AFC6F29ADD /* FilePillView.swift in Sources */,
 				B56E5F823E44681CED001F72 /* Haptics.swift in Sources */,
