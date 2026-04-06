@@ -278,14 +278,19 @@ enum PixelJoolsPath {
 
     static func bodyColor(for scheme: ColorScheme) -> Color {
         scheme == .dark
-            ? Color(red: 0.71, green: 0.58, blue: 0.96)
-            : Color(red: 0.55, green: 0.36, blue: 0.96)
+            ? Color(red: 0.78, green: 0.66, blue: 1.00)   // light lavender, pops on black
+            : Color(red: 0.55, green: 0.36, blue: 0.96)   // brand accent purple
     }
 
+    // The shadow cells form a 1-px drop shadow on the right side of the
+    // stem and underneath the hook. In light mode that's a near-black
+    // ink, but on a dark background near-black is invisible — so dark
+    // mode uses a saturated mid-purple that still reads as "depth"
+    // beneath the lavender body without dissolving into the surface.
     static func shadowColor(for scheme: ColorScheme) -> Color {
         scheme == .dark
-            ? Color(red: 0.06, green: 0.05, blue: 0.10)
-            : Color(red: 0.08, green: 0.06, blue: 0.13)
+            ? Color(red: 0.34, green: 0.22, blue: 0.58)   // mid-purple, visible on black
+            : Color(red: 0.08, green: 0.06, blue: 0.13)   // near-black ink
     }
 }
 
