@@ -12,6 +12,19 @@ settings:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     ENABLE_USER_SCRIPT_SANDBOXING: false
+    # Xcode 26's "Validate Project Settings" recommendations — both
+    # generate type-safe Swift accessors at compile time:
+    #
+    #   - GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS lets you write
+    #     `Image(.appIcon)` / `Color(.joolsAccent)` instead of the
+    #     stringly-typed `Image("AppIcon")` form.
+    #   - STRING_CATALOG_GENERATE_SYMBOLS does the same for strings
+    #     once we adopt String Catalogs (no-op until then).
+    #
+    # Mirrored here so they survive `make generate` — XcodeGen would
+    # otherwise blow away whatever Xcode wrote into project.pbxproj.
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+    STRING_CATALOG_GENERATE_SYMBOLS: YES
 
 packages:
   JoolsKit:
@@ -49,7 +62,13 @@ targets:
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        DEVELOPMENT_TEAM: ""
+        # Pinned to the project owner's individual Apple Developer team
+        # so a fresh `make generate` on any of the owner's machines (or
+        # local CI) picks the right team automatically. Other
+        # contributors signing in with their own Apple ID can override
+        # via Xcode → Signing & Capabilities, which writes a per-user
+        # *.xcuserdata override that XcodeGen leaves alone.
+        DEVELOPMENT_TEAM: R65679C4F3
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: true
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
