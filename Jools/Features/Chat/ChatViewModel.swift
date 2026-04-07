@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Combine
+import Observation
 import JoolsKit
 import os
 
@@ -33,32 +34,71 @@ private struct SessionUpdateOutcome {
     let stateChanged: Bool
 }
 
-/// View model for the chat view
+/// View model for the chat view.
+///
+/// Migrated from `ObservableObject` + `@Published` to the Swift 5.9+
+/// `@Observable` macro. The reason matters: `ObservableObject` fires
+/// `objectWillChange` on EVERY `@Published` mutation, which forces
+/// SwiftUI to re-run the body of every view that observes the object
+/// — even views that never read the property that changed. With
+/// `@Observable`, observation is **per-property**: a view that only
+/// reads `inputText` is not invalidated when `lastSuccessfulSyncAt`
+/// changes.
+///
+/// Why this matters for the freeze: under the 1 Hz burst-mode poll
+/// cycle, `isPolling`, `syncState`, and `lastSuccessfulSyncAt` all
+/// flip multiple times per second. Under the old `@Published` model,
+/// every flip re-ran `ChatView.body`, which then walked the
+/// `LazyVStack` of markdown bubbles and decided whether to invalidate
+/// cell layouts. Even when SwiftUI's diff was "smart," the walk
+/// itself wasn't free, and after a minute of sustained scroll the
+/// main thread saturated. With per-property observation, the parent
+/// `ChatView.body` doesn't invalidate when poll-status flips —
+/// because it doesn't read those properties anymore. Only the small
+/// `SessionStatusBanner` child view invalidates, and it doesn't own
+/// the heavy timeline. (Diagnosed via simulator process samples and
+/// council pass with codex + gemini, 2026-04-07.)
 @MainActor
-final class ChatViewModel: ObservableObject, PollingServiceDelegate {
-    // MARK: - Published State
+@Observable
+final class ChatViewModel: PollingServiceDelegate {
+    // MARK: - Observable State
 
-    @Published var inputText: String = ""
-    @Published var isLoading: Bool = false
-    @Published var isSending: Bool = false
-    @Published var isPolling: Bool = false
-    @Published var messageSentConfirmation: Bool = false
-    @Published var error: String?
-    @Published var showError: Bool = false
-    @Published var syncState: SessionSyncState = .idle
-    @Published var lastSuccessfulSyncAt: Date?
+    var inputText: String = ""
+    var isLoading: Bool = false
+    var isSending: Bool = false
+    var isPolling: Bool = false
+    var messageSentConfirmation: Bool = false
+    var error: String?
+    var showError: Bool = false
+    var syncState: SessionSyncState = .idle
+    var lastSuccessfulSyncAt: Date?
 
     // MARK: - Dependencies
+    //
+    // All non-view-facing internals are marked `@ObservationIgnored`
+    // so they don't participate in the `@Observable` per-property
+    // tracking. SwiftUI views never read these directly, so registering
+    // them with the observation registrar is pure overhead and could
+    // cause spurious invalidation if SwiftUI's macro decided to track
+    // their reads. (Council recommendation per codex, 2026-04-07.)
 
-    private let logger = Logger(subsystem: "com.indrasvat.jools", category: "ChatViewModel")
-    private var apiClient: APIClient?
-    private var modelContext: ModelContext?
-    private var pollingService: PollingService?
-    private var sessionId: String?
-    private var cancellables = Set<AnyCancellable>()
-    private var refreshTask: Task<Void, Never>?
-    private var optimisticReconciliationTasks: [String: Task<Void, Never>] = [:]
-    private var lastStaleRecoveryAt: Date?
+    @ObservationIgnored private let logger = Logger(subsystem: "com.indrasvat.jools", category: "ChatViewModel")
+    @ObservationIgnored private var apiClient: APIClient?
+    @ObservationIgnored private var modelContext: ModelContext?
+    @ObservationIgnored private var pollingService: PollingService?
+    @ObservationIgnored private var sessionId: String?
+    @ObservationIgnored private var cancellables = Set<AnyCancellable>()
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var optimisticReconciliationTasks: [String: Task<Void, Never>] = [:]
+    @ObservationIgnored private var lastStaleRecoveryAt: Date?
+    /// Tracks whether `configure(...)` has already wired the polling
+    /// pipeline. Without this guard, repeated `onAppear` invocations
+    /// (e.g. navigating back into the same chat) would stack a fresh
+    /// Combine sink onto `pollingService.$isPolling` each time, so
+    /// every poll tick would write to `self.isPolling` once per stale
+    /// subscription. Codex flagged this as an update-amplification
+    /// foot-gun in the council pass.
+    @ObservationIgnored private var isConfigured = false
 
     var canSend: Bool {
         !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending
@@ -71,10 +111,14 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
         return false
     }
 
-    deinit {
-        refreshTask?.cancel()
-        optimisticReconciliationTasks.values.forEach { $0.cancel() }
-    }
+    // Note: no `deinit` task cancellation. Under Swift 6 strict
+    // concurrency + `@Observable`, the view model is `@MainActor`-
+    // isolated and `deinit` runs in a nonisolated context, so it
+    // can't touch `refreshTask` or `optimisticReconciliationTasks`
+    // without an isolation hop. Both task closures capture
+    // `[weak self]`, so when the view model is deallocated they
+    // become no-ops on their next iteration — the leak is bounded
+    // and harmless.
 
     // MARK: - Setup
 
@@ -84,6 +128,18 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
         pollingService: PollingService,
         sessionId: String
     ) {
+        // Idempotent configure: if we've already wired the polling
+        // pipeline for this view model, don't double-subscribe. This
+        // covers the case where `ChatView.onAppear` fires more than
+        // once (e.g. navigating back to an existing screen, scene
+        // phase wakeups). Without this guard, every `onAppear` would
+        // add another `pollingService.$isPolling` Combine sink, and
+        // the same poll tick would invalidate `self.isPolling` once
+        // per stale subscription — exactly the kind of avoidable
+        // update amplification we're trying to remove.
+        guard !isConfigured else { return }
+        isConfigured = true
+
         self.apiClient = apiClient
         self.modelContext = modelContext
         self.pollingService = pollingService
@@ -92,11 +148,41 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
         pollingService.delegate = self
         pollingService.updateActivityCursor(latestKnownActivityCreateTime())
 
+        // Bridge PollingService's `@Published var isPolling` (still
+        // ObservableObject under JoolsKit) into our `@Observable`
+        // `isPolling` via a manual sink. `removeDuplicates()` is
+        // critical: PollingService writes `isPolling` true → false →
+        // true on every poll cycle, but if it ever wrote the same
+        // value back-to-back we'd still trigger an Observable
+        // notification — and that costs a body re-eval downstream.
         pollingService.$isPolling
+            .removeDuplicates()
             .receive(on: DispatchQueue.main)
-            .assign(to: &$isPolling)
+            .sink { [weak self] newValue in
+                self?.isPolling = newValue
+            }
+            .store(in: &cancellables)
 
         applyUITestOverrides()
+    }
+
+    /// Tear down all background work owned by this view model. Called
+    /// from `ChatView.onDisappear` so refresh tasks, optimistic-message
+    /// reconciliation tasks, and the polling Combine sink stop doing
+    /// work as soon as the user leaves the screen. Codex flagged the
+    /// "trust [weak self] to deallocate" stance as too optimistic;
+    /// explicit teardown is cleaner and avoids any work flicker
+    /// across navigation pops. (Council recommendation, 2026-04-07.)
+    func teardown() {
+        refreshTask?.cancel()
+        refreshTask = nil
+        for task in optimisticReconciliationTasks.values {
+            task.cancel()
+        }
+        optimisticReconciliationTasks.removeAll()
+        cancellables.removeAll()
+        pollingService?.delegate = nil
+        isConfigured = false
     }
 
     func latestKnownActivityCreateTime() -> Date? {
@@ -328,6 +414,25 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
     }
 
     // MARK: - SwiftData Sync
+    //
+    // The two `sync*` helpers below MUST be idempotent: a poll that
+    // arrives with no new information must result in zero SwiftData
+    // mutations and zero `modelContext.save()` calls. Without that,
+    // every poll tick fires `@Query` invalidation in the chat view,
+    // SwiftUI re-runs `ChatView.body`, and the LazyVStack re-measures
+    // every visible markdown bubble. Under sustained scroll plus the
+    // 1 Hz burst-mode poll cycle this saturates the main thread and
+    // freezes the UI — diagnosed via simulator `sample` of the frozen
+    // process and confirmed by a dootsabha council pass with codex +
+    // gemini. The hot stack in the sample
+    // (`LazyVStackLayout.sizeThatFits`) is the symptom; the cause is
+    // poll-driven view invalidation that retriggers measurement.
+    //
+    // The fix is structural: compare every incoming DTO field against
+    // its existing entity value, only mutate on actual difference, and
+    // only call `save()` if at least one field actually changed. This
+    // makes a no-op poll cost zero and preserves the existing
+    // observation surface for genuine updates.
 
     private func syncActivities(_ dtos: [ActivityDTO], sessionId: String, modelContext: ModelContext) {
         guard let session = persistedSession(sessionId: sessionId) else { return }
@@ -338,28 +443,44 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
 
         let optimisticMessages = session.activities.filter { $0.isOptimistic && $0.type == .userMessaged }
 
+        var didMutate = false
+
         for dto in dtos {
             if let existing = existingActivities[dto.id] {
-                if let contentData = try? JSONEncoder().encode(dto.content) {
+                // Idempotent update path. Both fields are compared
+                // before being written so a poll that returns the
+                // same activity body produces zero SwiftData writes.
+                if let contentData = try? JSONEncoder().encode(dto.content),
+                   existing.contentJSON != contentData {
                     existing.contentJSON = contentData
+                    didMutate = true
                 }
-                existing.createdAt = dto.createTime ?? existing.createdAt
+                if let createTime = dto.createTime, existing.createdAt != createTime {
+                    existing.createdAt = createTime
+                    didMutate = true
+                }
             } else {
+                // Optimistic-message reconciliation. Deleting the
+                // optimistic row is itself a mutation, so flag it.
                 if dto.activityType == .userMessaged,
                    let serverMessage = dto.userMessaged?.userMessage,
                    let optimistic = optimisticMessages.first(where: { $0.messageContent == serverMessage }) {
                     optimisticReconciliationTasks[optimistic.id]?.cancel()
                     optimisticReconciliationTasks[optimistic.id] = nil
                     modelContext.delete(optimistic)
+                    didMutate = true
                 }
 
                 let activity = ActivityEntity(from: dto)
                 activity.session = session
                 modelContext.insert(activity)
+                didMutate = true
             }
         }
 
-        try? modelContext.save()
+        if didMutate {
+            try? modelContext.save()
+        }
     }
 
     private func updateSession(_ dto: SessionDTO, sessionId: String, modelContext: ModelContext) -> SessionUpdateOutcome {
@@ -367,17 +488,39 @@ final class ChatViewModel: ObservableObject, PollingServiceDelegate {
             return SessionUpdateOutcome(stateChanged: false)
         }
 
+        var didMutate = false
         let previousState = session.stateRaw
-        session.stateRaw = dto.state ?? session.stateRaw
-        session.updatedAt = dto.updateTime ?? Date()
 
-        if let output = dto.outputs?.first?.pullRequest {
-            session.prURL = output.url
-            session.prTitle = output.title
-            session.prDescription = output.description
+        // Idempotent state write — only touch the property when the
+        // poll actually delivered a new state value. Same for every
+        // other field below.
+        if let newState = dto.state, newState != session.stateRaw {
+            session.stateRaw = newState
+            didMutate = true
+        }
+        if let newUpdatedAt = dto.updateTime, newUpdatedAt != session.updatedAt {
+            session.updatedAt = newUpdatedAt
+            didMutate = true
         }
 
-        try? modelContext.save()
+        if let output = dto.outputs?.first?.pullRequest {
+            if output.url != session.prURL {
+                session.prURL = output.url
+                didMutate = true
+            }
+            if output.title != session.prTitle {
+                session.prTitle = output.title
+                didMutate = true
+            }
+            if output.description != session.prDescription {
+                session.prDescription = output.description
+                didMutate = true
+            }
+        }
+
+        if didMutate {
+            try? modelContext.save()
+        }
         return SessionUpdateOutcome(stateChanged: previousState != session.stateRaw)
     }
 

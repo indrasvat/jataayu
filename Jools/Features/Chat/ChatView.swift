@@ -2,153 +2,103 @@ import SwiftUI
 import SwiftData
 import JoolsKit
 
-/// Chat view for interacting with a Jules session
+/// Chat view for interacting with a Jules session.
+///
+/// **Observation-splitting architecture (2026-04-07).** Two earlier
+/// freezes were caused by `ChatView.body` having too wide an
+/// observation surface: every poll tick flipped `viewModel.isPolling`,
+/// `viewModel.syncState`, and `viewModel.lastSuccessfulSyncAt`, each
+/// of which re-evaluated the entire body INCLUDING the heavy
+/// LazyVStack of markdown bubbles. SwiftUI then walked the LazyVStack
+/// subtree on every parent re-evaluation, and even with idempotent
+/// SwiftData sync the parent re-eval cost compounded badly under the
+/// 1Hz burst-mode poll cycle.
+///
+/// The fix is to split the chat surface into three sibling views with
+/// disjoint observation slices:
+///
+/// 1. `ChatHeader` — observes session metadata only
+/// 2. `SessionStatusBanner` — observes the volatile poll state
+///    (`isPolling`, `syncState`, `lastSuccessfulSyncAt`)
+/// 3. `ChatMessagesList` — owns its own `@Query` of activities and
+///    only re-renders when the activity set actually changes
+/// 4. `ChatInputBar` — observes only `viewModel.inputText` and
+///    `isSending`
+///
+/// `ChatView` itself only observes the session entity and the high-
+/// level lifecycle state. When the polling service flips
+/// `isPolling`, only the status banner re-renders — the message list
+/// stays put because its inputs (the @Query subscription + the
+/// session id + the canRespondToPlan flag) are unchanged. (Diagnosed
+/// via simulator process sample + dootsabha council with codex +
+/// gemini.)
 struct ChatView: View {
     let session: SessionEntity
     @EnvironmentObject private var dependencies: AppDependency
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var viewModel = ChatViewModel()
-    @Query private var activities: [ActivityEntity]
+    // `@State` (not `@StateObject`) is the right wrapper for an
+    // `@Observable` reference type. SwiftUI tracks the object's
+    // identity via `@State` and per-property reads via `@Observable`.
+    @State private var viewModel = ChatViewModel()
 
     init(session: SessionEntity) {
         self.session = session
-        let sessionId = session.id
-        _activities = Query(
-            filter: #Predicate<ActivityEntity> { activity in
-                activity.session?.id == sessionId
-            },
-            sort: [SortDescriptor(\ActivityEntity.createdAt, order: .forward)]
-        )
     }
 
     var body: some View {
-        // Resolve session state ONCE per body invocation. Both
-        // `session.effectiveState` and the inline child views that
-        // would otherwise call it (currentStepTitle, currentStepDescription,
-        // showsTypingIndicator, ActivityView's canRespond check) walk
-        // every activity through the state machine. Re-deriving
-        // effective state from each child view turns body evaluation
-        // into O(N × M) where N = activities and M = call sites,
-        // which compounds badly with the burst-mode polling cycle
-        // that re-renders ChatView several times per second.
-        let effectiveState = session.effectiveState
-        let resolvedState = session.resolvedState
-        let stepTitle = currentStepTitle(for: effectiveState)
-        let stepDescription = currentStepDescription(for: effectiveState)
-        let showsTyping = showsTypingIndicator(for: effectiveState)
-        let canRespondToPlan = effectiveState == .awaitingPlanApproval
+        // CRITICAL: this body deliberately reads NOTHING that depends
+        // on `session.activities` or any volatile `viewModel`
+        // property. With `@Observable` (Swift 5.9+), every property
+        // read inside a body establishes per-property observation
+        // tracking; if the parent reads `session.effectiveState`
+        // (which walks `session.activities` through the state
+        // machine), every activity insert/update invalidates the
+        // parent body and forces SwiftUI to re-walk the entire
+        // ZStack/LazyVStack subtree. That's the
+        // `dispatchImmediately → UpdateStack::update → _ZStackLayout.placeSubviews`
+        // freeze pattern we hit on the all-fixes build.
+        //
+        // The wrapper-view pattern below moves EVERY read of either
+        // volatile viewModel state or activity-derived state into
+        // its own tiny child view (LiveChatChrome,
+        // LiveSessionStatusBanner, ChatMessagesList,
+        // MessageSentConfirmationOverlay, ErrorAlertHost,
+        // RefreshToolbarButton). Each tiny view has a narrow
+        // observation surface, so only the subview that observes a
+        // changing property re-renders. The parent body itself only
+        // observes the `session` reference identity and the
+        // `viewModel` reference identity — neither of which changes
+        // during normal operation. (Council pass with codex,
+        // 2026-04-07.)
 
         VStack(spacing: 0) {
-            // Chat header
-            ChatHeader(session: session, resolvedState: resolvedState)
+            // Chrome header + status banner. Owns ALL session-state
+            // computation (effectiveState, resolvedState, currentStep
+            // text). The parent body never touches session.activities.
+            LiveChatChrome(session: session, viewModel: viewModel)
 
-            // Status banner
-            SessionStatusBanner(
-                state: effectiveState,
-                syncState: viewModel.syncState,
-                isPolling: viewModel.isPolling,
-                lastUpdatedAt: viewModel.lastSuccessfulSyncAt,
-                currentStepTitle: stepTitle,
-                currentStepDescription: stepDescription,
-                onRetry: {
-                    Task {
-                        await viewModel.manualRefresh()
-                    }
-                }
+            Divider()
+
+            ChatMessagesList(
+                session: session,
+                viewModel: viewModel
             )
 
             Divider()
 
-            // Messages
-            ZStack {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: JoolsSpacing.md) {
-                            ForEach(displayedActivities, id: \.id) { activity in
-                                ActivityView(
-                                    activity: activity,
-                                    session: session,
-                                    viewModel: viewModel,
-                                    canRespondToPlan: canRespondToPlan
-                                )
-                                .id(activity.id)
-                            }
-
-                            // Show typing indicator when session is actively working
-                            if showsTyping {
-                                TypingIndicatorView()
-                                    .id("typing-indicator")
-                            }
-
-                            MadeWithJoolsFooter()
-                        }
-                        .padding(.vertical)
-                    }
-                    .refreshable {
-                        await viewModel.manualRefresh()
-                    }
-                    .accessibilityIdentifier("chat.scroll")
-                    .onAppear {
-                        // Initial scroll to bottom when opening session
-                        scrollToBottom(proxy: proxy, showsTyping: showsTyping)
-                    }
-                    .onChange(of: displayedActivities.count) { oldValue, newValue in
-                        // Scroll when new activities are added
-                        guard newValue > oldValue else { return }
-                        scrollToBottom(proxy: proxy, showsTyping: showsTyping)
-                    }
-                }
-
-                if viewModel.isLoading && displayedActivities.isEmpty {
-                    ProgressView("Loading activities...")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.joolsBackground)
-                }
-
-                if !viewModel.isLoading && displayedActivities.isEmpty {
-                    EmptyActivitiesView(
-                        state: effectiveState,
-                        syncState: viewModel.syncState,
-                        onRetry: {
-                            Task {
-                                await viewModel.manualRefresh()
-                            }
-                        }
-                    )
-                }
-            }
-
-            Divider()
-
-            // Input bar
             ChatInputBar(viewModel: viewModel, sessionId: session.id)
         }
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    Task {
-                        await viewModel.manualRefresh()
-                    }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .disabled(viewModel.isSyncing)
-                .accessibilityIdentifier("chat.refresh")
+                RefreshToolbarButton(viewModel: viewModel)
             }
         }
-        .alert("Error", isPresented: $viewModel.showError) {
-            Button("OK") {}
-        } message: {
-            Text(viewModel.error ?? "An error occurred")
-        }
+        .modifier(ErrorAlertHost(viewModel: viewModel))
         .overlay(alignment: .top) {
-            if viewModel.messageSentConfirmation {
-                MessageSentConfirmation()
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .animation(.spring(duration: 0.3), value: viewModel.messageSentConfirmation)
-            }
+            MessageSentConfirmationOverlay(viewModel: viewModel)
         }
         .onAppear {
             configureViewModel()
@@ -179,25 +129,142 @@ struct ChatView: View {
         }
         .onDisappear {
             dependencies.pollingService.stopPolling()
+            viewModel.teardown()
         }
     }
 
-    /// The activities to render in the timeline.
-    ///
-    /// We rely on the `@Query`'s `SortDescriptor(\.createdAt, order: .forward)`
-    /// for ordering — sorting is done by SwiftData at fetch time so we
-    /// don't need to re-sort on every body re-evaluation. The previous
-    /// implementation called `.sorted { ... }` twice (once on
-    /// `activities`, once on `session.activities` as a fallback) inside
-    /// a computed property used by a `ForEach`, which paid the sort cost
-    /// on every render. Under burst-mode polling that re-rendered the
-    /// chat view ~once per second, that was significant main-thread work.
-    /// (Gemini review.)
-    ///
-    /// We keep the `session.activities` fallback path for the initial
-    /// load case where the `@Query` hasn't yet observed the freshly-
-    /// inserted rows — but we read the relationship straight, no extra
-    /// sort, since `@Relationship` ordering matches `createdAt` here.
+    private func configureViewModel() {
+        viewModel.configure(
+            apiClient: dependencies.apiClient,
+            modelContext: modelContext,
+            pollingService: dependencies.pollingService,
+            sessionId: session.id
+        )
+    }
+}
+
+// MARK: - Chat Messages List (observation-split child)
+//
+// This view exists specifically to isolate the heavy LazyVStack of
+// markdown bubbles from the parent's volatile poll state. The
+// parent `ChatView.body` re-evaluates several times per polling
+// cycle as `viewModel.isPolling`, `syncState`, and
+// `lastSuccessfulSyncAt` flip. Without this split, every parent
+// re-eval forces SwiftUI to walk the LazyVStack subtree and decide
+// whether to invalidate cell layouts — which, with markdown bubbles
+// having complex `sizeThatFits` cost, was the second freeze
+// contributor (after the non-idempotent SwiftData writes that the
+// codex/gemini council pass identified).
+//
+// `ChatMessagesList` owns its OWN `@Query` of activities. As long as
+// the underlying SwiftData store doesn't actually mutate (which the
+// idempotent sync ensures for unchanged polls), the @Query result is
+// stable and SwiftUI can short-circuit re-renders of this view even
+// when the parent re-runs its body. The parent passes only the
+// session entity, the view model reference (compared by identity),
+// the resolved effective state, and the canRespondToPlan flag —
+// none of which change on a typical poll tick.
+
+struct ChatMessagesList: View {
+    let session: SessionEntity
+    /// `@Bindable` is the `@Observable` equivalent of `@ObservedObject`.
+    /// It lets the child read observable properties of the view model
+    /// without forcing the parent to invalidate when those properties
+    /// change — per-property tracking is the whole point.
+    @Bindable var viewModel: ChatViewModel
+
+    @Query private var activities: [ActivityEntity]
+
+    init(
+        session: SessionEntity,
+        viewModel: ChatViewModel
+    ) {
+        self.session = session
+        self.viewModel = viewModel
+
+        let sessionId = session.id
+        _activities = Query(
+            filter: #Predicate<ActivityEntity> { activity in
+                activity.session?.id == sessionId
+            },
+            sort: [SortDescriptor(\ActivityEntity.createdAt, order: .forward)]
+        )
+    }
+
+    var body: some View {
+        // Compute effectiveState/canRespondToPlan INSIDE this child
+        // body so the observation stays here, not in the parent.
+        // The parent ChatView body never reads session.activities or
+        // session.effectiveState — that's the whole point of this
+        // architecture.
+        let displayedActivities = displayedActivities
+        let effectiveState = session.effectiveState
+        let canRespondToPlan = effectiveState == .awaitingPlanApproval
+        let showsTyping = effectiveState == .running
+            || effectiveState == .inProgress
+            || effectiveState == .queued
+
+        ZStack {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: JoolsSpacing.md) {
+                        ForEach(displayedActivities, id: \.id) { activity in
+                            ActivityView(
+                                activity: activity,
+                                session: session,
+                                viewModel: viewModel,
+                                canRespondToPlan: canRespondToPlan
+                            )
+                            .id(activity.id)
+                        }
+
+                        if showsTyping {
+                            TypingIndicatorView()
+                                .id("typing-indicator")
+                        }
+
+                        MadeWithJoolsFooter()
+                    }
+                    .padding(.vertical)
+                }
+                .refreshable {
+                    await viewModel.manualRefresh()
+                }
+                .accessibilityIdentifier("chat.scroll")
+                .onAppear {
+                    scrollToBottom(proxy: proxy, displayedActivities: displayedActivities, showsTyping: showsTyping)
+                }
+                .onChange(of: displayedActivities.count) { oldValue, newValue in
+                    guard newValue > oldValue else { return }
+                    scrollToBottom(proxy: proxy, displayedActivities: displayedActivities, showsTyping: showsTyping)
+                }
+            }
+
+            if viewModel.isLoading && displayedActivities.isEmpty {
+                ProgressView("Loading activities...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.joolsBackground)
+            }
+
+            if !viewModel.isLoading && displayedActivities.isEmpty {
+                EmptyActivitiesView(
+                    state: effectiveState,
+                    syncState: viewModel.syncState,
+                    onRetry: {
+                        Task {
+                            await viewModel.manualRefresh()
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    /// Falls back to `session.activities` if the @Query hasn't yet
+    /// observed freshly inserted rows on first appear. The relationship
+    /// is sorted because @Relationship doesn't carry an ordering
+    /// guarantee — but we only sort on the fallback path, not the @Query
+    /// path (which is already sorted via the SortDescriptor).
     private var displayedActivities: [ActivityEntity] {
         if !activities.isEmpty {
             return activities
@@ -205,15 +272,90 @@ struct ChatView: View {
         return session.activities.sorted { $0.createdAt < $1.createdAt }
     }
 
+    private func scrollToBottom(
+        proxy: ScrollViewProxy,
+        displayedActivities: [ActivityEntity],
+        showsTyping: Bool
+    ) {
+        if showsTyping {
+            proxy.scrollTo("typing-indicator", anchor: .bottom)
+        } else if let lastActivity = displayedActivities.last {
+            proxy.scrollTo(lastActivity.id, anchor: .bottom)
+        }
+    }
+}
+
+// MARK: - Volatile-state observer wrappers
+//
+// These tiny views exist solely to isolate `@Observable` property
+// reads from the parent `ChatView.body`. With `@Observable` (Swift
+// 5.9+), every property read inside a view's body establishes
+// per-property observation tracking. If `ChatView.body` itself reads
+// `viewModel.isPolling` to pass it as a parameter to a child view,
+// the parent body gets invalidated on every poll tick — and the
+// resulting parent re-evaluation walks the entire ZStack and
+// LazyVStack subtree, triggering the
+// `dispatchImmediately → UpdateStack::update → _ZStackLayout.placeSubviews`
+// freeze pattern we hit on the all-fixes build.
+//
+// By extracting each cluster of volatile reads into its own tiny
+// observer view, only THAT view's body re-runs on the corresponding
+// state change. The parent body is invalidated only when truly
+// stable inputs (`session`, `effectiveState`, `canRespondToPlan`)
+// change — which under idempotent sync means roughly never during a
+// poll cycle.
+
+/// Wrapper that owns ALL session-state derivation (effectiveState,
+/// resolvedState, current step text) plus the chat header and the
+/// status banner. Crucially, every read of `session.activities` lives
+/// inside THIS view's body — not the parent `ChatView.body` — so
+/// activity inserts/updates only invalidate this small subtree, not
+/// the heavy LazyVStack message list. (Council fix per codex,
+/// 2026-04-07.)
+///
+/// `effectiveState` walks the entire activity timeline through the
+/// state machine; if it lived in `ChatView.body`, every activity
+/// arrival would re-walk the timeline AND re-walk the LazyVStack
+/// subtree below. By moving it here, the parent body stays inert
+/// across activity changes and the activity list re-renders
+/// independently.
+struct LiveChatChrome: View {
+    let session: SessionEntity
+    @Bindable var viewModel: ChatViewModel
+
+    var body: some View {
+        let effectiveState = session.effectiveState
+        let resolvedState = session.resolvedState
+        let stepTitle = currentStepTitle(for: effectiveState)
+        let stepDescription = currentStepDescription(for: effectiveState)
+
+        VStack(spacing: 0) {
+            ChatHeader(session: session, resolvedState: resolvedState)
+
+            LiveSessionStatusBanner(
+                viewModel: viewModel,
+                state: effectiveState,
+                currentStepTitle: stepTitle,
+                currentStepDescription: stepDescription
+            )
+        }
+    }
+
+    /// Sorted activity timeline read directly off the SwiftData
+    /// relationship. Sorted because `@Relationship` doesn't carry an
+    /// ordering guarantee.
+    private var displayedActivitiesForStatus: [ActivityEntity] {
+        session.activities.sorted { $0.createdAt < $1.createdAt }
+    }
+
     private var latestProgressActivity: ActivityEntity? {
-        displayedActivities.last(where: { $0.type == .progressUpdated })
+        displayedActivitiesForStatus.last(where: { $0.type == .progressUpdated })
     }
 
     private var latestPlanStep: PlanStepDTO? {
-        guard let steps = displayedActivities.last(where: { $0.type == .planGenerated })?.plan?.steps, !steps.isEmpty else {
+        guard let steps = displayedActivitiesForStatus.last(where: { $0.type == .planGenerated })?.plan?.steps, !steps.isEmpty else {
             return nil
         }
-
         return steps.first(where: { ($0.status ?? "").lowercased() == "in_progress" })
             ?? steps.first(where: { ($0.status ?? "").lowercased() == "pending" })
             ?? steps.last
@@ -250,35 +392,82 @@ struct ChatView: View {
             return nil
         }
     }
+}
 
-    private func showsTypingIndicator(for state: SessionState) -> Bool {
-        state == .running || state == .inProgress || state == .queued
+/// Tiny observer view that reads `viewModel.syncState`,
+/// `isPolling`, and `lastSuccessfulSyncAt` and renders the underlying
+/// stateless `SessionStatusBanner`. Only this view's body re-runs on
+/// poll-tick state flips.
+struct LiveSessionStatusBanner: View {
+    @Bindable var viewModel: ChatViewModel
+    let state: SessionState
+    let currentStepTitle: String?
+    let currentStepDescription: String?
+
+    var body: some View {
+        SessionStatusBanner(
+            state: state,
+            syncState: viewModel.syncState,
+            isPolling: viewModel.isPolling,
+            lastUpdatedAt: viewModel.lastSuccessfulSyncAt,
+            currentStepTitle: currentStepTitle,
+            currentStepDescription: currentStepDescription,
+            onRetry: {
+                Task {
+                    await viewModel.manualRefresh()
+                }
+            }
+        )
     }
+}
 
-    private func scrollToBottom(proxy: ScrollViewProxy, showsTyping: Bool) {
-        // Note: deliberately NOT wrapped in `withAnimation` anymore.
-        // When the polling loop delivers several new activities in
-        // quick succession (which happens during burst mode after a
-        // plan approval), the count-change observer fires once per
-        // arriving activity. Each `withAnimation { proxy.scrollTo }`
-        // schedules a 0.3s animation; with several stacking up the
-        // animation queue chains and pins the run loop. Hard-jumping
-        // to the bottom is fine for a chat-style UI and dramatically
-        // reduces main-thread pressure during long sessions.
-        if showsTyping {
-            proxy.scrollTo("typing-indicator", anchor: .bottom)
-        } else if let lastActivity = displayedActivities.last {
-            proxy.scrollTo(lastActivity.id, anchor: .bottom)
+/// Tiny observer view that reads `viewModel.messageSentConfirmation`
+/// and renders the toast. Only this view re-runs when the toast
+/// flag flips.
+struct MessageSentConfirmationOverlay: View {
+    @Bindable var viewModel: ChatViewModel
+
+    var body: some View {
+        if viewModel.messageSentConfirmation {
+            MessageSentConfirmation()
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .animation(.spring(duration: 0.3), value: viewModel.messageSentConfirmation)
         }
     }
+}
 
-    private func configureViewModel() {
-        viewModel.configure(
-            apiClient: dependencies.apiClient,
-            modelContext: modelContext,
-            pollingService: dependencies.pollingService,
-            sessionId: session.id
-        )
+/// View modifier that holds the error-alert state. The `.alert`
+/// modifier needs a `Binding<Bool>` to the showError flag, which
+/// requires reading the property — so we wrap it in a modifier that
+/// only this small surface observes.
+struct ErrorAlertHost: ViewModifier {
+    @Bindable var viewModel: ChatViewModel
+
+    func body(content: Content) -> some View {
+        content
+            .alert("Error", isPresented: $viewModel.showError) {
+                Button("OK") {}
+            } message: {
+                Text(viewModel.error ?? "An error occurred")
+            }
+    }
+}
+
+/// Tiny observer view for the toolbar refresh button. Only re-runs
+/// when `viewModel.isSyncing` changes.
+struct RefreshToolbarButton: View {
+    @Bindable var viewModel: ChatViewModel
+
+    var body: some View {
+        Button {
+            Task {
+                await viewModel.manualRefresh()
+            }
+        } label: {
+            Image(systemName: "arrow.clockwise")
+        }
+        .disabled(viewModel.isSyncing)
+        .accessibilityIdentifier("chat.refresh")
     }
 }
 
@@ -290,27 +479,65 @@ struct EmptyActivitiesView: View {
     let onRetry: () -> Void
 
     var body: some View {
-        VStack(spacing: JoolsSpacing.md) {
+        VStack(spacing: JoolsSpacing.lg) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 48))
-                .foregroundStyle(Color.joolsAccent.opacity(0.5))
+                .font(.system(size: 56, weight: .regular))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color.joolsAccent.opacity(0.55), Color.joolsAccent.opacity(0.25)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .accessibilityHidden(true)
 
-            Text(state.isActive ? "Waiting for activity" : "No messages yet")
-                .font(.joolsHeadline)
-                .foregroundStyle(.secondary)
+            VStack(spacing: JoolsSpacing.xs) {
+                Text(headlineText)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
 
-            Text(syncState.message ?? "Jules is syncing this session. Pull to refresh if the timeline looks stale.")
-                .font(.joolsCaption)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
+                Text(subheadText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 280)
+            }
 
             if syncState.canRetry {
-                Button("Tap to retry", action: onRetry)
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("chat.retry")
+                Button(action: onRetry) {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, JoolsSpacing.md)
+                        .padding(.vertical, JoolsSpacing.xs)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.joolsAccent)
+                .accessibilityIdentifier("chat.retry")
             }
         }
+        .padding(JoolsSpacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Short, scannable headline. Drops the "syncing" verbosity that
+    /// the previous copy had — the polling activity is already shown
+    /// up top in the status banner, so the empty-state headline only
+    /// needs to tell the user what THIS view is doing right now.
+    private var headlineText: String {
+        if syncState.canRetry {
+            return state.isActive ? "Couldn't load this session" : "Couldn't load activity"
+        }
+        return state.isActive ? "Waiting for the first message" : "No messages yet"
+    }
+
+    private var subheadText: String {
+        if let message = syncState.message {
+            return message
+        }
+        if state.isActive {
+            return "Jules will start posting here as soon as it's ready."
+        }
+        return "Send a follow-up to keep this session moving."
     }
 }
 
@@ -364,7 +591,7 @@ struct ChatHeader: View {
 struct ActivityView: View {
     let activity: ActivityEntity
     let session: SessionEntity
-    @ObservedObject var viewModel: ChatViewModel
+    @Bindable var viewModel: ChatViewModel
     /// Provided by the parent `ChatView` so each plan card doesn't
     /// have to re-derive `session.effectiveState` (which folds the
     /// entire activity timeline through the state machine).
@@ -476,7 +703,7 @@ struct SendStatusIcon: View {
 // MARK: - Chat Input Bar
 
 struct ChatInputBar: View {
-    @ObservedObject var viewModel: ChatViewModel
+    @Bindable var viewModel: ChatViewModel
     let sessionId: String
     @FocusState private var isFocused: Bool
 
@@ -574,7 +801,11 @@ struct WorkingCard: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: JoolsSpacing.sm) {
-            ThinkingAvatarView(size: 24)
+            // Use the same pixel-mascot avatar that AgentMessageBubble
+            // uses, so working/progress-update bubbles match agent
+            // message bubbles visually instead of using a different
+            // "rotating ring with sparkle" indicator. (UI review.)
+            JulesAvatarView(size: 28)
 
             VStack(alignment: .leading, spacing: JoolsSpacing.xxs) {
                 // Working/progress-update bubbles can carry markdown

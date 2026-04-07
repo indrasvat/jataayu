@@ -2,6 +2,55 @@ import Foundation
 import SwiftData
 import JoolsKit
 
+// MARK: - Decoded content cache
+//
+// Process-wide LRU cache for parsed `ActivityContentDTO` instances,
+// keyed on the raw `contentJSON` payload bytes. The previous design
+// re-decoded the JSON on every read of `messageContent`, `plan`,
+// `bashCommands`, `gitPatch`, `progressTitle`, `progressDescription`,
+// `diffAdditions`, `diffDeletions`, and `changedFiles` — a single
+// `CompletionCardView` render walked five+ of these accessors and
+// triggered five+ JSON decodes per visible cell per layout frame.
+// Under sustained chat scroll plus burst-mode polling that became a
+// significant main-thread cost (flagged by codex in the 2026-04-07
+// council pass).
+//
+// `NSCache` handles thread-safety and bounded eviction for us. The
+// key is `NSData` so two activities with byte-identical payloads
+// share the cache slot. When SwiftData mutates `contentJSON` (which
+// the idempotent sync only does on actual change), the new payload
+// is a different `Data` value and we get a fresh decode entry.
+private final class ActivityContentBox {
+    let content: ActivityContentDTO
+    init(_ content: ActivityContentDTO) { self.content = content }
+}
+
+private final class ActivityContentDecodeCache: @unchecked Sendable {
+    // `@unchecked Sendable` is correct here: NSCache is documented
+    // thread-safe, the boxed `ActivityContentDTO` is immutable after
+    // construction, and we only ever write through the
+    // `setObject(_:forKey:)` API which has its own internal lock.
+    static let shared = ActivityContentDecodeCache()
+
+    private let cache: NSCache<NSData, ActivityContentBox> = {
+        let cache = NSCache<NSData, ActivityContentBox>()
+        cache.countLimit = 1024
+        return cache
+    }()
+
+    func decode(from data: Data) -> ActivityContentDTO? {
+        let key = data as NSData
+        if let cached = cache.object(forKey: key) {
+            return cached.content
+        }
+        guard let decoded = try? JSONDecoder().decode(ActivityContentDTO.self, from: data) else {
+            return nil
+        }
+        cache.setObject(ActivityContentBox(decoded), forKey: key)
+        return decoded
+    }
+}
+
 // MARK: - Source Entity
 
 @Model
@@ -180,8 +229,16 @@ final class ActivityEntity {
         SendStatus(rawValue: sendStatusRaw) ?? .sent
     }
 
+    /// Returns the parsed `ActivityContentDTO` for this activity,
+    /// hitting the process-wide `ActivityContentDecodeCache` so a
+    /// repeated read on the same `contentJSON` payload returns in
+    /// constant time instead of running `JSONDecoder().decode(...)`
+    /// again. The cache key is the raw `Data` value, so when
+    /// SwiftData mutates `contentJSON` (which only happens on real
+    /// updates under the idempotent sync) the next decode gets a
+    /// fresh entry. (Council fix, 2026-04-07.)
     var decodedContent: ActivityContentDTO? {
-        try? JSONDecoder().decode(ActivityContentDTO.self, from: contentJSON)
+        ActivityContentDecodeCache.shared.decode(from: contentJSON)
     }
 
     var messageContent: String? {
