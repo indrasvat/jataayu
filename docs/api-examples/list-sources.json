@@ -82,6 +82,7 @@
       "githubRepo": {
         "owner": "indrasvat",
         "repo": "jools",
+        "isPrivate": false,
         "defaultBranch": {
           "displayName": "main"
         },
@@ -164,6 +165,7 @@
       "githubRepo": {
         "owner": "indrasvat",
         "repo": "nimisha",
+        "isPrivate": false,
         "defaultBranch": {
           "displayName": "main"
         },

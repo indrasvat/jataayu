@@ -214,7 +214,8 @@ private struct DiffHunkView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Hunk header — gray pill that anchors the new line
-            // numbers, similar to GitHub's compact diff view.
+            // numbers, similar to GitHub's compact diff view. Stays
+            // pinned (doesn't scroll horizontally with the lines below).
             Text(hunk.header)
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.secondary)
@@ -223,8 +224,15 @@ private struct DiffHunkView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.joolsSurfaceElevated)
 
-            ForEach(hunk.lines) { line in
-                DiffLineRow(line: line)
+            // Horizontally scrollable hunk body so long source lines
+            // get a single visual row each (matching the line numbers
+            // 1:1) instead of wrapping. CodeRabbit P1 review feedback.
+            ScrollView(.horizontal, showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(hunk.lines) { line in
+                        DiffLineRow(line: line)
+                    }
+                }
             }
         }
     }
@@ -240,13 +248,18 @@ private struct DiffLineRow: View {
             lineNumberCell(line.newLineNumber)
                 .foregroundStyle(.tertiary)
 
+            // Single visual row per diff line — never wrap. The parent
+            // ScrollView lets long lines scroll horizontally instead,
+            // preserving the 1:1 mapping between source lines and
+            // visible rows that diff readers rely on.
             Text(prefix + line.content)
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(textColor)
+                .lineLimit(1)
                 .padding(.vertical, 2)
                 .padding(.leading, JoolsSpacing.xs)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
+                .padding(.trailing, JoolsSpacing.md)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .background(rowBackground)
     }

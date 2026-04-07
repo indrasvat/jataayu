@@ -3,11 +3,31 @@ import JoolsKit
 
 // MARK: - Plan Card with Collapsible Steps
 
-/// A card displaying a proposed plan with expandable step details
+/// A card displaying a proposed plan with expandable step details.
+///
+/// `canRespond` controls whether the Approve / Revise buttons render.
+/// Plan cards stay visible in the chat timeline forever — once the
+/// session has moved past `awaitingPlanApproval`, the buttons would
+/// fire stale plan mutations against an already-approved plan, so
+/// callers should pass `false` for any plan card that's no longer
+/// the live plan. (CodeRabbit review feedback.)
 struct PlanCardView: View {
     let activity: ActivityEntity
+    let canRespond: Bool
     let onApprove: () -> Void
     let onRevise: () -> Void
+
+    init(
+        activity: ActivityEntity,
+        canRespond: Bool = true,
+        onApprove: @escaping () -> Void,
+        onRevise: @escaping () -> Void
+    ) {
+        self.activity = activity
+        self.canRespond = canRespond
+        self.onApprove = onApprove
+        self.onRevise = onRevise
+    }
 
     @State private var isExpanded = true
     @State private var expandedSteps: Set<Int> = []
@@ -33,11 +53,16 @@ struct PlanCardView: View {
                 // Steps list
                 stepsContent
 
-                Divider()
-                    .padding(.horizontal, JoolsSpacing.md)
+                // Action buttons only render while the plan is still
+                // live and awaiting a response. Historical plan cards
+                // (from a session that has since been approved /
+                // completed) stay visible but inert.
+                if canRespond {
+                    Divider()
+                        .padding(.horizontal, JoolsSpacing.md)
 
-                // Action buttons
-                actionButtons
+                    actionButtons
+                }
             }
         }
         .background(Color.joolsSurface)

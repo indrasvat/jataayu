@@ -347,6 +347,10 @@ struct ActivityView: View {
         case .planGenerated:
             PlanCardView(
                 activity: activity,
+                // Only the live plan should expose Approve/Revise.
+                // Historical plan cards from sessions that have moved
+                // past awaiting-approval stay visible but inert.
+                canRespond: session.effectiveState == .awaitingPlanApproval,
                 onApprove: { viewModel.approvePlan(activityId: activity.id) },
                 onRevise: { viewModel.rejectPlan(activityId: activity.id) }
             )

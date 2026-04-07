@@ -231,13 +231,20 @@ struct CompletionCardView: View {
             }
             .foregroundStyle(.secondary)
 
-            // Share button
-            Button {
-                showShareSheet = true
-            } label: {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.body)
-                    .foregroundStyle(Color.joolsAccent)
+            // Share button — only meaningful when there's a PR URL to
+            // share. Without this guard, repoless completions would
+            // open an empty share sheet (the inner content was already
+            // gated on prURL but the button itself was always visible,
+            // landing the user in a dead-end modal). CodeRabbit review.
+            if session.prURL != nil {
+                Button {
+                    showShareSheet = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.body)
+                        .foregroundStyle(Color.joolsAccent)
+                }
+                .accessibilityLabel("Share PR")
             }
         }
         .padding(JoolsSpacing.md)

@@ -61,10 +61,7 @@ Most of these are upstream constraints, not code we're avoiding writing.
 | No scheduled-task CRUD inside the app | The public Jules REST API doesn't expose scheduled-task endpoints; we hand off to the web UI |
 | No suggestions feed | Same — no public endpoint |
 | No CI Fixer / Render / MCP integration management | No public endpoints for any of these |
-| No per-file diff browser | Only diff stats and changed-file lists are exposed via `changeSet.gitPatch`; a real diff viewer is on the roadmap |
 | No media-artifact viewer | The DTOs we model only cover `bashOutput` and `changeSet` artifact types |
-| No repoless session creation | The API supports it, but the iOS create-session flow still requires a source — ([planned fix](docs/Jools_Implementation_Plan_v3.md)) |
-| Daily-usage shows `n/100` | Jules doesn't expose plan limits via the API; we assume Pro tier as a sane default |
 | No remote push notifications | Would require either a Jools-owned backend or upstream webhook support |
 
 For more, see [`docs/Remaining_Work_Plan_2026-04.md`](docs/Remaining_Work_Plan_2026-04.md) and [`docs/Jools_Implementation_Plan_v3.md`](docs/Jools_Implementation_Plan_v3.md).

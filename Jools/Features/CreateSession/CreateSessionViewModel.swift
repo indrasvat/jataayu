@@ -135,10 +135,13 @@ final class CreateSessionViewModel: ObservableObject {
             let request = makeRequest()
             let sessionDTO = try await apiClient.createSession(request)
 
-            // Save to SwiftData
+            // Save to SwiftData. Don't suppress the error — if the
+            // local persistence fails, navigating into the new session
+            // would land on a row that vanishes on next reload, which
+            // is worse than failing visibly here. (CodeRabbit review.)
             let session = SessionEntity(from: sessionDTO)
             modelContext.insert(session)
-            try? modelContext.save()
+            try modelContext.save()
 
             createdSession = session
 
