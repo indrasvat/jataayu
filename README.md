@@ -1,5 +1,7 @@
 # Jools
 
+[![CI](https://github.com/indrasvat/jools/actions/workflows/ci.yml/badge.svg)](https://github.com/indrasvat/jools/actions/workflows/ci.yml)
+
 > **Jules, in your pocket.**
 > An unofficial iOS client for [Google's Jules](https://jules.google/) — the autonomous coding agent.
 
