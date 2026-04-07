@@ -23,8 +23,21 @@ struct ChatView: View {
     }
 
     var body: some View {
+        // Resolve session state ONCE per body invocation. Both
+        // `session.effectiveState` and the inline child views that
+        // would otherwise call it (currentStepTitle, currentStepDescription,
+        // showsTypingIndicator, ActivityView's canRespond check) walk
+        // every activity through the state machine. Re-deriving
+        // effective state from each child view turns body evaluation
+        // into O(N × M) where N = activities and M = call sites,
+        // which compounds badly with the burst-mode polling cycle
+        // that re-renders ChatView several times per second.
         let effectiveState = session.effectiveState
         let resolvedState = session.resolvedState
+        let stepTitle = currentStepTitle(for: effectiveState)
+        let stepDescription = currentStepDescription(for: effectiveState)
+        let showsTyping = showsTypingIndicator(for: effectiveState)
+        let canRespondToPlan = effectiveState == .awaitingPlanApproval
 
         VStack(spacing: 0) {
             // Chat header
@@ -36,8 +49,8 @@ struct ChatView: View {
                 syncState: viewModel.syncState,
                 isPolling: viewModel.isPolling,
                 lastUpdatedAt: viewModel.lastSuccessfulSyncAt,
-                currentStepTitle: currentStepTitle,
-                currentStepDescription: currentStepDescription,
+                currentStepTitle: stepTitle,
+                currentStepDescription: stepDescription,
                 onRetry: {
                     Task {
                         await viewModel.manualRefresh()
@@ -53,12 +66,17 @@ struct ChatView: View {
                     ScrollView {
                         LazyVStack(spacing: JoolsSpacing.md) {
                             ForEach(displayedActivities, id: \.id) { activity in
-                                ActivityView(activity: activity, session: session, viewModel: viewModel)
-                                    .id(activity.id)
+                                ActivityView(
+                                    activity: activity,
+                                    session: session,
+                                    viewModel: viewModel,
+                                    canRespondToPlan: canRespondToPlan
+                                )
+                                .id(activity.id)
                             }
 
                             // Show typing indicator when session is actively working
-                            if showsTypingIndicator {
+                            if showsTyping {
                                 TypingIndicatorView()
                                     .id("typing-indicator")
                             }
@@ -73,12 +91,12 @@ struct ChatView: View {
                     .accessibilityIdentifier("chat.scroll")
                     .onAppear {
                         // Initial scroll to bottom when opening session
-                        scrollToBottom(proxy: proxy)
+                        scrollToBottom(proxy: proxy, showsTyping: showsTyping)
                     }
                     .onChange(of: displayedActivities.count) { oldValue, newValue in
                         // Scroll when new activities are added
                         guard newValue > oldValue else { return }
-                        scrollToBottom(proxy: proxy)
+                        scrollToBottom(proxy: proxy, showsTyping: showsTyping)
                     }
                 }
 
@@ -201,8 +219,8 @@ struct ChatView: View {
             ?? steps.last
     }
 
-    private var currentStepTitle: String? {
-        switch session.effectiveState {
+    private func currentStepTitle(for state: SessionState) -> String? {
+        switch state {
         case .awaitingPlanApproval:
             return latestPlanStep?.title ?? "Review the generated plan"
         case .awaitingUserInput:
@@ -220,8 +238,8 @@ struct ChatView: View {
         }
     }
 
-    private var currentStepDescription: String? {
-        switch session.effectiveState {
+    private func currentStepDescription(for state: SessionState) -> String? {
+        switch state {
         case .awaitingPlanApproval:
             return latestPlanStep?.description
         case .awaitingUserInput:
@@ -233,12 +251,11 @@ struct ChatView: View {
         }
     }
 
-    private var showsTypingIndicator: Bool {
-        let state = session.effectiveState
-        return state == .running || state == .inProgress || state == .queued
+    private func showsTypingIndicator(for state: SessionState) -> Bool {
+        state == .running || state == .inProgress || state == .queued
     }
 
-    private func scrollToBottom(proxy: ScrollViewProxy) {
+    private func scrollToBottom(proxy: ScrollViewProxy, showsTyping: Bool) {
         // Note: deliberately NOT wrapped in `withAnimation` anymore.
         // When the polling loop delivers several new activities in
         // quick succession (which happens during burst mode after a
@@ -248,7 +265,7 @@ struct ChatView: View {
         // animation queue chains and pins the run loop. Hard-jumping
         // to the bottom is fine for a chat-style UI and dramatically
         // reduces main-thread pressure during long sessions.
-        if showsTypingIndicator {
+        if showsTyping {
             proxy.scrollTo("typing-indicator", anchor: .bottom)
         } else if let lastActivity = displayedActivities.last {
             proxy.scrollTo(lastActivity.id, anchor: .bottom)
@@ -348,6 +365,10 @@ struct ActivityView: View {
     let activity: ActivityEntity
     let session: SessionEntity
     @ObservedObject var viewModel: ChatViewModel
+    /// Provided by the parent `ChatView` so each plan card doesn't
+    /// have to re-derive `session.effectiveState` (which folds the
+    /// entire activity timeline through the state machine).
+    let canRespondToPlan: Bool
 
     var body: some View {
         switch activity.type {
@@ -368,7 +389,7 @@ struct ActivityView: View {
                 // Only the live plan should expose Approve/Revise.
                 // Historical plan cards from sessions that have moved
                 // past awaiting-approval stay visible but inert.
-                canRespond: session.effectiveState == .awaitingPlanApproval,
+                canRespond: canRespondToPlan,
                 onApprove: { viewModel.approvePlan() },
                 onRevise: { viewModel.rejectPlan() }
             )

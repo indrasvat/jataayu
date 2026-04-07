@@ -32,6 +32,18 @@ import Markdown
 
 /// Renders a markdown string as a SwiftUI view, walking the
 /// swift-markdown AST and emitting per-block subviews.
+///
+/// Parsed `Document` instances are memoized in a process-wide
+/// `NSCache` keyed by the markdown source string. Without this
+/// cache, every re-render of the chat (which happens often — every
+/// poll tick, every `@Query` update, every syncState change) would
+/// re-parse every visible agent bubble's markdown on the main
+/// thread. For a session with N agent messages and a chat that
+/// scrolls / re-lays-out frequently, that's an O(N) main-thread
+/// hit per render which manifested as the "new repoless session
+/// freeze" symptom on top of the polling-task-chain fixes from
+/// commit 1b2e190. The cache lives for the app lifetime and is
+/// bounded by NSCache's default policy.
 struct MarkdownText: View {
     let markdown: String
 
@@ -40,12 +52,52 @@ struct MarkdownText: View {
     }
 
     var body: some View {
-        let document = Document(parsing: markdown, options: [.parseBlockDirectives])
+        let document = MarkdownDocumentCache.shared.document(for: markdown)
         VStack(alignment: .leading, spacing: JoolsSpacing.sm) {
             ForEach(Array(document.blockChildren.enumerated()), id: \.offset) { _, block in
                 MarkdownBlockView(block: block)
             }
         }
+    }
+}
+
+/// Process-wide LRU cache for parsed `Markdown.Document` instances.
+///
+/// Keyed on the markdown source string identity. Each unique agent
+/// message contributes one entry; the cache is bounded by NSCache's
+/// default cost-based eviction so it never grows unbounded across
+/// long sessions. Reads are thread-safe; writes from multiple
+/// threads are serialized internally by NSCache.
+private final class MarkdownDocumentCache: @unchecked Sendable {
+    // `@unchecked Sendable` is correct here: NSCache itself is
+    // documented as thread-safe (Apple guarantees concurrent
+    // get/set are safe), and the only mutable state is held inside
+    // it. The cache stores `DocumentBox` reference types whose
+    // `document` property is set once at init and never mutated,
+    // so cross-thread reads of an entry are also safe.
+    static let shared = MarkdownDocumentCache()
+
+    private let cache: NSCache<NSString, DocumentBox> = {
+        let cache = NSCache<NSString, DocumentBox>()
+        cache.countLimit = 256
+        return cache
+    }()
+
+    func document(for markdown: String) -> Document {
+        let key = markdown as NSString
+        if let cached = cache.object(forKey: key) {
+            return cached.document
+        }
+        let parsed = Document(parsing: markdown, options: [.parseBlockDirectives])
+        cache.setObject(DocumentBox(parsed), forKey: key)
+        return parsed
+    }
+
+    /// NSCache requires `AnyObject` values, so wrap the value-type
+    /// `Document` in a small reference box.
+    private final class DocumentBox {
+        let document: Document
+        init(_ document: Document) { self.document = document }
     }
 }
 
