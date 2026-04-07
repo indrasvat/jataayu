@@ -74,6 +74,9 @@ private struct MarkdownBlockView: View {
         case let blockQuote as BlockQuote:
             BlockQuoteView(blockQuote: blockQuote)
 
+        case let table as Markdown.Table:
+            TableView(table: table)
+
         case is ThematicBreak:
             Divider()
 
@@ -211,6 +214,96 @@ private struct BlockQuoteView: View {
     }
 }
 
+// MARK: - Table
+//
+// Jules frequently emits results as GitHub-flavored markdown tables
+// (e.g. "list the top 3 repos in a markdown table"). swift-markdown
+// parses these into `Markdown.Table` with a `head` row and a `body`
+// of rows. Without an explicit handler the block dispatcher would
+// fall through to `block.format()` and dump the raw markdown source
+// (`| col | col |\n|---|---|\n| a | b |`) into the chat bubble.
+//
+// We render tables as a horizontally-scrollable column-stack of
+// cells: each column is a vertical pile of `Text` runs (header on
+// top, body cells below), with a separator strip after the header.
+// SwiftUI's `Grid` would be ideal here but its sizing model doesn't
+// play nicely with the chat bubble's `fixedSize(horizontal: false,
+// vertical: true)` because Grid wants intrinsic widths from every
+// child up front. The HStack-of-VStacks approach measures each
+// column independently and lets the bubble flow naturally.
+
+private struct TableView: View {
+    let table: Markdown.Table
+
+    var body: some View {
+        let columnCount = computedColumnCount
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 0) {
+                ForEach(0..<columnCount, id: \.self) { columnIndex in
+                    columnView(at: columnIndex)
+                    if columnIndex < columnCount - 1 {
+                        Divider()
+                    }
+                }
+            }
+            .background(Color.joolsSurfaceElevated.opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: JoolsRadius.sm))
+            .overlay(
+                RoundedRectangle(cornerRadius: JoolsRadius.sm)
+                    .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+            )
+        }
+    }
+
+    /// Tables can technically have rows of different widths in
+    /// markdown, so take the maximum cell count across head + body
+    /// rather than trusting any single row.
+    private var computedColumnCount: Int {
+        var maxCount = Array(table.head.cells).count
+        for row in table.body.rows {
+            maxCount = max(maxCount, Array(row.cells).count)
+        }
+        return maxCount
+    }
+
+    private func columnView(at columnIndex: Int) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header cell
+            cellText(headerCell(at: columnIndex), isHeader: true)
+
+            Divider()
+
+            // Body cells
+            ForEach(Array(table.body.rows.enumerated()), id: \.offset) { rowIndex, row in
+                let cells = Array(row.cells)
+                let cell: Markdown.Table.Cell? = columnIndex < cells.count ? cells[columnIndex] : nil
+                cellText(cell, isHeader: false)
+
+                if rowIndex < Array(table.body.rows).count - 1 {
+                    Divider().opacity(0.4)
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func headerCell(at columnIndex: Int) -> Markdown.Table.Cell? {
+        let cells = Array(table.head.cells)
+        guard columnIndex < cells.count else { return nil }
+        return cells[columnIndex]
+    }
+
+    @ViewBuilder
+    private func cellText(_ cell: Markdown.Table.Cell?, isHeader: Bool) -> some View {
+        let attributed = cell.map { InlineAttributedStringBuilder.build(from: $0) } ?? AttributedString("")
+        Text(attributed)
+            .font(isHeader ? .joolsBody.weight(.semibold) : .joolsBody)
+            .padding(.horizontal, JoolsSpacing.sm)
+            .padding(.vertical, JoolsSpacing.xs)
+            .frame(minWidth: 60, alignment: .leading)
+    }
+}
+
 // MARK: - Inline → AttributedString
 
 /// Walks an inline-bearing block and produces a SwiftUI-compatible
@@ -250,8 +343,22 @@ private enum InlineAttributedStringBuilder {
     }
 
     static func build(from block: any BlockMarkup) -> AttributedString {
+        build(fromChildren: block.children)
+    }
+
+    /// Overload for non-BlockMarkup containers like `Markdown.Table.Cell`
+    /// (which inherits `Markup` but not `BlockMarkup`). The chat
+    /// table renderer needs to walk a cell's inline children to
+    /// produce a styled `AttributedString` for that cell, and the
+    /// `Markup` protocol exposes the same `children` sequence we
+    /// already use elsewhere.
+    static func build(from markup: Markup) -> AttributedString {
+        build(fromChildren: markup.children)
+    }
+
+    private static func build(fromChildren children: MarkupChildren) -> AttributedString {
         var result = AttributedString()
-        for child in block.children {
+        for child in children {
             append(child, into: &result, style: InlineStyle())
         }
         return result
