@@ -339,6 +339,25 @@ enum SessionStateMachine {
         }
     }
 
+    /// Fold an activity into the current display state.
+    ///
+    /// Design note: this state machine is deliberately narrow. It ONLY
+    /// does two things:
+    ///
+    /// 1. Respect terminal activities (`sessionCompleted`, `sessionFailed`)
+    ///    and the `planGenerated` activity, which unambiguously imply a
+    ///    particular display state regardless of what the backend last
+    ///    told us.
+    /// 2. Promote `starting`/`queued` to `working` once the first user
+    ///    or agent activity lands, so the UI doesn't sit on a stale
+    ///    "Starting" label longer than it needs to.
+    ///
+    /// We intentionally DO NOT try to infer `awaitingUserInput` by
+    /// scanning agent message content. The Jules REST API already
+    /// returns `AWAITING_USER_INPUT` as a first-class state; trusting
+    /// that is strictly better than substring-matching agent prose,
+    /// which historically mislabelled friendly closers ("…just let me
+    /// know. Have a great day!") as input-needed.
     private static func transition(from state: SessionDisplayState, with activity: ActivityEntity) -> SessionDisplayState {
         switch activity.type {
         case .sessionCompleted:
@@ -346,18 +365,13 @@ enum SessionStateMachine {
         case .sessionFailed:
             return .failed
         case .planGenerated:
-            return .awaitingPlanApproval
-        case .planApproved, .progressUpdated, .userMessaged:
-            return state == .cancelled ? .cancelled : .working
-        case .agentMessaged:
-            if state == .completed || state == .failed || state == .cancelled {
-                return state
-            }
-
-            if requestsUserInput(message: activity.messageContent) {
-                return .awaitingUserInput
-            }
-
+            return state == .completed || state == .failed || state == .cancelled ? state : .awaitingPlanApproval
+        case .planApproved, .progressUpdated, .userMessaged, .agentMessaged:
+            // Advance `starting`/`queued` to `working` once activity
+            // actually flows. Everything else falls through — the API
+            // state seeded in `initialState(for:)` is the source of
+            // truth for `awaitingUserInput`, `completed`, `failed`,
+            // etc. We just don't second-guess it here.
             switch state {
             case .starting, .queued:
                 return .working
@@ -367,34 +381,6 @@ enum SessionStateMachine {
         case .unknown:
             return state
         }
-    }
-
-    private static func requestsUserInput(message: String?) -> Bool {
-        guard let message else { return false }
-        let normalizedMessage = message.lowercased()
-
-        let phrases = [
-            "please clarify",
-            "could you",
-            "can you confirm",
-            "would you like",
-            "which would you prefer",
-            "let me know",
-            "waiting for your input",
-            "need your input",
-            "before i proceed",
-            "reply directly in chat",
-        ]
-
-        if phrases.contains(where: normalizedMessage.contains) {
-            return true
-        }
-
-        if normalizedMessage.filter({ $0 == "?" }).count >= 1 {
-            return true
-        }
-
-        return normalizedMessage.contains("1.") && normalizedMessage.contains("2.")
     }
 }
 
