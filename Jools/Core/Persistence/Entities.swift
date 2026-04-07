@@ -341,37 +341,51 @@ enum SessionStateMachine {
 
     /// Fold an activity into the current display state.
     ///
-    /// Design note: this state machine is deliberately narrow. It ONLY
-    /// does two things:
-    ///
-    /// 1. Respect terminal activities (`sessionCompleted`, `sessionFailed`)
-    ///    and the `planGenerated` activity, which unambiguously imply a
-    ///    particular display state regardless of what the backend last
-    ///    told us.
-    /// 2. Promote `starting`/`queued` to `working` once the first user
-    ///    or agent activity lands, so the UI doesn't sit on a stale
-    ///    "Starting" label longer than it needs to.
-    ///
-    /// We intentionally DO NOT try to infer `awaitingUserInput` by
-    /// scanning agent message content. The Jules REST API already
-    /// returns `AWAITING_USER_INPUT` as a first-class state; trusting
-    /// that is strictly better than substring-matching agent prose,
-    /// which historically mislabelled friendly closers ("…just let me
-    /// know. Have a great day!") as input-needed.
+    /// Design note: this state machine is deliberately narrow. It trusts
+    /// typed activity markers (which are unambiguous) and falls back to
+    /// the seeded API state for everything else. It intentionally does
+    /// NOT try to infer `awaitingUserInput` by scanning agent message
+    /// content — the Jules REST API already returns `AWAITING_USER_INPUT`
+    /// as a first-class state; trusting that is strictly better than
+    /// substring-matching agent prose, which historically mislabelled
+    /// friendly closers ("…just let me know. Have a great day!") as
+    /// input-needed.
     private static func transition(from state: SessionDisplayState, with activity: ActivityEntity) -> SessionDisplayState {
+        // Terminal activities override everything.
+        if state == .cancelled { return .cancelled }
+
         switch activity.type {
         case .sessionCompleted:
             return .completed
         case .sessionFailed:
             return .failed
         case .planGenerated:
-            return state == .completed || state == .failed || state == .cancelled ? state : .awaitingPlanApproval
-        case .planApproved, .progressUpdated, .userMessaged, .agentMessaged:
-            // Advance `starting`/`queued` to `working` once activity
-            // actually flows. Everything else falls through — the API
-            // state seeded in `initialState(for:)` is the source of
-            // truth for `awaitingUserInput`, `completed`, `failed`,
-            // etc. We just don't second-guess it here.
+            // A plan was (re)generated. Unless the session is already
+            // in a terminal state, this means Jules is waiting on the
+            // user to approve.
+            return state == .completed || state == .failed ? state : .awaitingPlanApproval
+        case .planApproved:
+            // User approved the plan — session is now actively running.
+            return state == .completed || state == .failed ? state : .working
+        case .progressUpdated:
+            // Jules shipped a progress update — definitely working.
+            return state == .completed || state == .failed ? state : .working
+        case .userMessaged:
+            // A user message cancels any "awaiting user input" status
+            // and advances starting/queued to working.
+            switch state {
+            case .completed, .failed:
+                return state
+            case .starting, .queued, .awaitingUserInput:
+                return .working
+            default:
+                return state
+            }
+        case .agentMessaged:
+            // Advance starting/queued to working on any agent output,
+            // but don't second-guess the backend state otherwise —
+            // awaitingUserInput comes from the API, not from parsing
+            // agent prose.
             switch state {
             case .starting, .queued:
                 return .working
