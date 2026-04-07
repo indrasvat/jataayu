@@ -545,8 +545,10 @@ struct WorkingCard: View {
             ThinkingAvatarView(size: 24)
 
             VStack(alignment: .leading, spacing: JoolsSpacing.xxs) {
-                Text(message)
-                    .font(.joolsBody)
+                // Working/progress-update bubbles can carry markdown
+                // too (Jules often emits "**Analyzing:** ..." style
+                // status lines) so render through MarkdownText.
+                MarkdownText(message)
                     .foregroundStyle(.primary)
             }
             .padding(.horizontal, JoolsSpacing.md)

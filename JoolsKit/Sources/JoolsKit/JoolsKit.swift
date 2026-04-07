@@ -31,3 +31,7 @@
 
 // Re-export all public types
 @_exported import Foundation
+// Re-export swift-markdown so app-level views (e.g. the chat
+// MarkdownText renderer) can walk the AST without needing a separate
+// direct dependency on swift-markdown in the iOS target.
+@_exported import Markdown

@@ -30,6 +30,7 @@
 		694E2DC6F2E4B8C8623DA448 /* CreateSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 898E0E608FDB38A8ADE72E15 /* CreateSessionView.swift */; };
 		720B07E20C9153A13E5E77F0 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D2A326FD5B525C349C7A1A7 /* Colors.swift */; };
 		760E7E0A6C13B4D7D527C7A1 /* ScheduledTaskComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB0A370FBEEE4013D76774A /* ScheduledTaskComposerView.swift */; };
+		80CA19264A52480704CCC627 /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D1B924B4F57FB2E400B7B9 /* MarkdownText.swift */; };
 		88C3D472854ACB73136B6244 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0D2225EE84F7ED0D259A09D /* OnboardingViewModel.swift */; };
 		932ED57E3B7FD8444726D063 /* PlanCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A3B30BFED7D0264ADE04BE4 /* PlanCardView.swift */; };
 		96B17DCA69761B8E29432453 /* Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1762997ED0E2F7DFFCDA8FFA /* Appearance.swift */; };
@@ -76,6 +77,7 @@
 		425B67829FCDB7DCDECCB419 /* SessionStatusBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStatusBanner.swift; sourceTree = "<group>"; };
 		4EAAF4A8948E2B9D3ED24714 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		5189B5350A2DE2BCEEA50333 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		55D1B924B4F57FB2E400B7B9 /* MarkdownText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownText.swift; sourceTree = "<group>"; };
 		5A3B30BFED7D0264ADE04BE4 /* PlanCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanCardView.swift; sourceTree = "<group>"; };
 		5D2A326FD5B525C349C7A1A7 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		75EF4E3FF816718B4811F603 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
@@ -255,6 +257,7 @@
 				24E9101694FA23EE0C261EF2 /* CompletionCardView.swift */,
 				7E8FC2819C3ADD06CE146BCF /* FilePillView.swift */,
 				A815BAA05D5FAE09D3574EA2 /* JulesAvatarView.swift */,
+				55D1B924B4F57FB2E400B7B9 /* MarkdownText.swift */,
 				5A3B30BFED7D0264ADE04BE4 /* PlanCardView.swift */,
 				425B67829FCDB7DCDECCB419 /* SessionStatusBanner.swift */,
 			);
@@ -459,6 +462,7 @@
 				3CAA7E436B9D306B0B2A931D /* HomeModels.swift in Sources */,
 				31A3B26995C0A1A927AB1EE3 /* JoolsApp.swift in Sources */,
 				379A4C97F5AFADA4798685DD /* JulesAvatarView.swift in Sources */,
+				80CA19264A52480704CCC627 /* MarkdownText.swift in Sources */,
 				C23BD34EAA8584E3406BA65D /* OnboardingView.swift in Sources */,
 				88C3D472854ACB73136B6244 /* OnboardingViewModel.swift in Sources */,
 				932ED57E3B7FD8444726D063 /* PlanCardView.swift in Sources */,

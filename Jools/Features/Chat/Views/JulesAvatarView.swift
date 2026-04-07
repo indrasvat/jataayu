@@ -98,9 +98,11 @@ struct AgentMessageBubble: View {
             }
 
             VStack(alignment: .leading, spacing: JoolsSpacing.xxs) {
-                // Message content
-                Text(content)
-                    .font(.joolsBody)
+                // Message content — rendered through MarkdownText so
+                // Jules's GitHub-flavored markdown (bold, lists, code
+                // fences, headings, links) displays properly instead
+                // of leaking through as raw source.
+                MarkdownText(content)
                     .padding(.horizontal, JoolsSpacing.md)
                     .padding(.vertical, JoolsSpacing.sm)
                     .background(Color.joolsBubbleAgent)
