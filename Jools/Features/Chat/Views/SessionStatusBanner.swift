@@ -17,22 +17,27 @@ struct SessionStatusBanner: View {
     var body: some View {
         if let config = bannerConfig {
             VStack(alignment: .leading, spacing: JoolsSpacing.sm) {
-                HStack(alignment: .center, spacing: JoolsSpacing.md) {
-                    if config.showsMascot {
-                        PixelJulesMascot(mood: config.mascotMood)
-                            .frame(width: 36, height: 36)
-                            .padding(.trailing, JoolsSpacing.xxs)
-                            .accessibilityHidden(true)
-                    } else if config.showSpinner {
+                HStack(alignment: .center, spacing: JoolsSpacing.sm) {
+                    // The bouncing PixelJulesMascot that used to live
+                    // here was removed: it kept overshooting the
+                    // banner's top edge and visually overlapping the
+                    // session header row above the banner, regardless
+                    // of the ±1pt animation constraint. Rather than
+                    // fighting the layout, the banner now shows just
+                    // the title text (left-aligned, larger font), with
+                    // a tiny status glyph on the left for non-working
+                    // states. For working/queued/unspecified states
+                    // where the mascot used to live, we fall back to
+                    // a compact spinner so the "something is running"
+                    // affordance stays visible.
+                    if config.showSpinner {
                         ProgressView()
-                            .scaleEffect(0.9)
+                            .scaleEffect(0.85)
                             .tint(config.foregroundColor)
-                            .frame(width: 36, height: 36)
                     } else {
                         Image(systemName: config.icon)
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(config.foregroundColor)
-                            .frame(width: 36, height: 36)
                     }
 
                     // Title + ellipsis composed as a single Text run so
@@ -48,7 +53,7 @@ struct SessionStatusBanner: View {
                     // Previously the dots broke `XCUIElementQuery` because
                     // the visible text changed 2-3 times per second.
                     Text(messageWithEllipsis(config: config))
-                        .font(.subheadline.weight(.semibold))
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(config.foregroundColor)
                         .lineLimit(1)
                         .accessibilityLabel(config.message)
@@ -171,9 +176,7 @@ struct SessionStatusBanner: View {
                 foregroundColor: Color.joolsAccent,
                 showSpinner: true,
                 animateDots: true,
-                showPollingIndicator: true,
-                showsMascot: true,
-                mascotMood: .working
+                showPollingIndicator: true
             )
 
         case .queued:
@@ -184,9 +187,7 @@ struct SessionStatusBanner: View {
                 foregroundColor: Color.orange,
                 showSpinner: true,
                 animateDots: true,
-                showPollingIndicator: true,
-                showsMascot: true,
-                mascotMood: .queued
+                showPollingIndicator: true
             )
 
         case .awaitingUserInput:
@@ -237,9 +238,7 @@ struct SessionStatusBanner: View {
                 foregroundColor: Color.joolsAccent,
                 showSpinner: true,
                 animateDots: true,
-                showPollingIndicator: true,
-                showsMascot: true,
-                mascotMood: .starting
+                showPollingIndicator: true
             )
         }
     }
@@ -269,8 +268,6 @@ private struct BannerConfig {
     var showSpinner: Bool = false
     var animateDots: Bool = false
     var showPollingIndicator: Bool = false
-    var showsMascot: Bool = false
-    var mascotMood: PixelJulesMascot.Mood = .working
 }
 
 /// Pixel-art Jules mascot, used by both the chat status banner and

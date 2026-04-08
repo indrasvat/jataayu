@@ -3,14 +3,15 @@ import JoolsKit
 
 // MARK: - Jules Avatar
 
-/// Compact pixel-mascot avatar used in chat bubbles. Replaces the
-/// earlier "purple gradient circle with an SF sparkles glyph"
-/// placeholder so the chat surface uses ONE consistent visual for
-/// Jules — the same pixel mascot that appears in the status banner
-/// and (smaller) inline with agent messages. Users were getting
-/// three different "Jules" representations (banner mascot, gradient
-/// sparkles avatar in bubbles, rotating ring in working indicator),
-/// which made the surface feel inconsistent. (UI review.)
+/// Compact pixel-mascot avatar used in chat bubbles. Shows the
+/// PixelJulesMascot directly, with no circular backdrop or border —
+/// the pixel art IS the avatar. The earlier design wrapped it in a
+/// round gradient-tinted circle with a stroke border, but the mascot
+/// grid (rows 0..7 of a 9-row grid, columns 1..8 of a 9-column grid)
+/// is visually offset from the geometric center of its frame, which
+/// made the pixel art look off-center INSIDE the circle. Dropping
+/// the circle sidesteps that entirely and keeps the chat surface
+/// using ONE consistent visual for Jules: the pixel mascot itself.
 struct JulesAvatarView: View {
     let size: CGFloat
     let isAnimated: Bool
@@ -21,24 +22,9 @@ struct JulesAvatarView: View {
     }
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(LinearGradient.joolsAccentGradient.opacity(0.18))
-            Circle()
-                .strokeBorder(Color.joolsAccent.opacity(0.35), lineWidth: 1)
-
-            // The mascot is normally framed at 32+; at small avatar
-            // sizes (~28pt) we shrink the inner pixel art so it
-            // doesn't crowd the circle border. The ±1pt breathing
-            // animation is left enabled here — at this size it's a
-            // very subtle hint of life next to the messages, exactly
-            // the way the Jules web UI animates its own logo.
-            // (User feedback.)
-            PixelJulesMascot(mood: .working)
-                .frame(width: size * 0.78, height: size * 0.78)
-        }
-        .frame(width: size, height: size)
-        .accessibilityLabel("Jules")
+        PixelJulesMascot(mood: .working, isAnimated: isAnimated)
+            .frame(width: size, height: size)
+            .accessibilityLabel("Jules")
     }
 }
 
