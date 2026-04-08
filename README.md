@@ -75,11 +75,13 @@ For more, see [`docs/Remaining_Work_Plan_2026-04.md`](docs/Remaining_Work_Plan_2
 Each tagged release publishes a `Jools-vX.Y.Z-iphonesimulator.zip` asset on the [Releases page](https://github.com/indrasvat/jools/releases). The zip contains a Release-configuration `Jools.app` ready to drop onto a booted iPhone simulator.
 
 ```bash
-# 1. Boot a simulator (any iPhone running iOS 26.0+).
-xcrun simctl boot "iPhone 17 Pro"
+# 1. Boot a simulator (any iPhone running iOS 26.0+) and wait for it to
+#    finish booting. `bootstatus -b` blocks until the launchd tree is up.
+xcrun simctl boot "iPhone 17 Pro" || true      # `|| true` — already-booted is not an error
+xcrun simctl bootstatus "iPhone 17 Pro" -b
 open -a Simulator
 
-# 2. Grab the asset from the latest release.
+# 2. Grab the asset from the latest stable release.
 gh release download --repo indrasvat/jools --pattern '*-iphonesimulator.zip'
 
 # 3. Unzip and install.
@@ -87,6 +89,8 @@ unzip Jools-v*-iphonesimulator.zip
 xcrun simctl install booted Jools.app
 xcrun simctl launch booted com.indrasvat.jools
 ```
+
+> **Installing a pre-release (e.g. alpha / rc)?** `gh release download` without an explicit tag only matches stable releases. For pre-releases, pass the tag by hand: `gh release download v1.0.0-alpha.1 --repo indrasvat/jools --pattern '*-iphonesimulator.zip'`.
 
 This path doesn't require Xcode, signing, or any of the build dependencies — just a Mac with the iOS 26 simulator runtime installed.
 
