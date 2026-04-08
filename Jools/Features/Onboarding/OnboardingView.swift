@@ -423,10 +423,25 @@ struct FeaturePillsView: View {
 
     // Anchored to what the public Jules REST API actually exposes —
     // each pill maps to a flow that genuinely works on this client.
+    //
+    // Wording is deliberately concrete about what the app does, not
+    // what the phrase might *imply*:
+    //   - "Approve plans"    — tap Approve/Revise on a plan card.
+    //   - "Chat with Jules"  — two-way conversation. Send follow-
+    //                          ups mid-run (with optimistic UI),
+    //                          watch step-by-step progress stream
+    //                          in via adaptive polling, respond
+    //                          when Jules asks for input.
+    //   - "View diffs"       — per-file unified diff viewer for
+    //                          completed sessions (not PR *review*
+    //                          — you can't comment/approve/merge
+    //                          from here; that needs GitHub API
+    //                          access outside the Jules REST
+    //                          surface).
     let features = [
-        ("checkmark.seal.fill", "Approve plans"),
-        ("waveform.path.ecg", "Live progress"),
-        ("arrow.triangle.pull", "Review PRs"),
+        ("checkmark.seal.fill",      "Approve plans"),
+        ("bubble.left.and.bubble.right.fill", "Chat with Jules"),
+        ("doc.text.magnifyingglass", "View diffs"),
     ]
 
     var body: some View {
