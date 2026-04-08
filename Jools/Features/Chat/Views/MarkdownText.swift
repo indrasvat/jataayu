@@ -68,7 +68,7 @@ struct MarkdownText: View {
 /// default cost-based eviction so it never grows unbounded across
 /// long sessions. Reads are thread-safe; writes from multiple
 /// threads are serialized internally by NSCache.
-private final class MarkdownDocumentCache: @unchecked Sendable {
+final class MarkdownDocumentCache: @unchecked Sendable {
     // `@unchecked Sendable` is correct here: NSCache itself is
     // documented as thread-safe (Apple guarantees concurrent
     // get/set are safe), and the only mutable state is held inside
@@ -369,7 +369,7 @@ private struct TableView: View {
 /// which silently clobbered whatever children had already applied
 /// (the inner italic ran was re-fonted to the outer bold and lost
 /// its italic trait). (CodeRabbit review.)
-private enum InlineAttributedStringBuilder {
+enum InlineAttributedStringBuilder {
     /// Which traits are currently active on the recursion path.
     /// Kept as a value type so children get a copy they can layer
     /// new traits onto without affecting siblings.

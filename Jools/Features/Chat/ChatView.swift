@@ -192,12 +192,44 @@ struct ChatMessagesList: View {
     }
 
     var body: some View {
-        // Compute effectiveState/canRespondToPlan INSIDE this child
-        // body so the observation stays here, not in the parent.
-        // The parent ChatView body never reads session.activities or
-        // session.effectiveState — that's the whole point of this
-        // architecture.
-        let displayedActivities = displayedActivities
+        // Option B architecture (2026-04-07):
+        //
+        // 1. Convert the `@Query` result to `[ActivitySnapshot]` value
+        //    types via `ActivitySnapshotBuilder`. This is the ONE
+        //    place in the chat surface that touches SwiftData
+        //    `@PersistedProperty` accessors — everything downstream
+        //    is pure Sendable value types. The ForEach id keypath
+        //    no longer goes through SwiftData's observation
+        //    registrar, and cell recycling sees stable Equatable
+        //    inputs. (Council recommendation: codex + gemini.)
+        //
+        // 2. Use `List` instead of `ScrollView + LazyVStack`. List
+        //    is backed by `UICollectionView` under the hood with
+        //    native cell recycling — the Jules web UI's advantage
+        //    comes from the browser's mature layout caching, and
+        //    `List` is the closest SwiftUI equivalent. `LazyVStack`
+        //    has no cell-level recycling and walks every visible
+        //    child on every invalidation.
+        //
+        // 3. Each row takes an `ActivitySnapshot` by value, so the
+        //    row view tree is flat: agent markdown bubbles render
+        //    via a `ForEach(segments)` of pre-computed flat
+        //    `MarkdownSegment`s, not a nested walk of the
+        //    swift-markdown AST.
+        //
+        // The markdown rendering happens ONCE when the snapshot is
+        // constructed (in the snapshot builder), not on every row
+        // render. Combined with the existing `MarkdownDocumentCache`,
+        // repeated rebuilds of the same content are effectively
+        // free. (Web UI forensic analysis: Jules web outputs ~3
+        // HTML elements per markdown block; previous SwiftUI
+        // MarkdownText produced ~50 nested views per block — the
+        // flat-segments approach closes that 15× gap.)
+
+        let snapshots = ActivitySnapshotBuilder.build(
+            from: activities,
+            fallback: session.activities
+        )
         let effectiveState = session.effectiveState
         let canRespondToPlan = effectiveState == .awaitingPlanApproval
         let showsTyping = effectiveState == .running
@@ -205,82 +237,91 @@ struct ChatMessagesList: View {
             || effectiveState == .queued
 
         ZStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: JoolsSpacing.md) {
-                        ForEach(displayedActivities, id: \.id) { activity in
-                            ActivityView(
-                                activity: activity,
-                                session: session,
-                                viewModel: viewModel,
-                                canRespondToPlan: canRespondToPlan
+            if snapshots.isEmpty && viewModel.isLoading {
+                ProgressView("Loading activities...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.joolsBackground)
+            } else if snapshots.isEmpty {
+                EmptyActivitiesView(
+                    state: effectiveState,
+                    syncState: viewModel.syncState,
+                    onRetry: {
+                        Task { await viewModel.manualRefresh() }
+                    }
+                )
+            } else {
+                ScrollViewReader { proxy in
+                    List {
+                        ForEach(snapshots) { snapshot in
+                            ActivitySnapshotRow(
+                                snapshot: snapshot,
+                                canRespondToPlan: canRespondToPlan,
+                                onApprovePlan: { viewModel.approvePlan() },
+                                onRevisePlan: { viewModel.rejectPlan() }
                             )
-                            .id(activity.id)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets(
+                                top: JoolsSpacing.xs,
+                                leading: 0,
+                                bottom: JoolsSpacing.xs,
+                                trailing: 0
+                            ))
                         }
 
                         if showsTyping {
                             TypingIndicatorView()
                                 .id("typing-indicator")
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                                .listRowInsets(EdgeInsets(
+                                    top: JoolsSpacing.xs,
+                                    leading: 0,
+                                    bottom: JoolsSpacing.xs,
+                                    trailing: 0
+                                ))
                         }
 
                         MadeWithJoolsFooter()
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets())
                     }
-                    .padding(.vertical)
-                }
-                .refreshable {
-                    await viewModel.manualRefresh()
-                }
-                .accessibilityIdentifier("chat.scroll")
-                .onAppear {
-                    scrollToBottom(proxy: proxy, displayedActivities: displayedActivities, showsTyping: showsTyping)
-                }
-                .onChange(of: displayedActivities.count) { oldValue, newValue in
-                    guard newValue > oldValue else { return }
-                    scrollToBottom(proxy: proxy, displayedActivities: displayedActivities, showsTyping: showsTyping)
-                }
-            }
-
-            if viewModel.isLoading && displayedActivities.isEmpty {
-                ProgressView("Loading activities...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.joolsBackground)
-            }
-
-            if !viewModel.isLoading && displayedActivities.isEmpty {
-                EmptyActivitiesView(
-                    state: effectiveState,
-                    syncState: viewModel.syncState,
-                    onRetry: {
-                        Task {
-                            await viewModel.manualRefresh()
-                        }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .refreshable {
+                        await viewModel.manualRefresh()
                     }
-                )
+                    .accessibilityIdentifier("chat.scroll")
+                    .onAppear {
+                        scrollToBottom(
+                            proxy: proxy,
+                            snapshots: snapshots,
+                            showsTyping: showsTyping
+                        )
+                    }
+                    .onChange(of: snapshots.count) { oldValue, newValue in
+                        guard newValue > oldValue else { return }
+                        scrollToBottom(
+                            proxy: proxy,
+                            snapshots: snapshots,
+                            showsTyping: showsTyping
+                        )
+                    }
+                }
             }
         }
-    }
-
-    /// Falls back to `session.activities` if the @Query hasn't yet
-    /// observed freshly inserted rows on first appear. The relationship
-    /// is sorted because @Relationship doesn't carry an ordering
-    /// guarantee — but we only sort on the fallback path, not the @Query
-    /// path (which is already sorted via the SortDescriptor).
-    private var displayedActivities: [ActivityEntity] {
-        if !activities.isEmpty {
-            return activities
-        }
-        return session.activities.sorted { $0.createdAt < $1.createdAt }
     }
 
     private func scrollToBottom(
         proxy: ScrollViewProxy,
-        displayedActivities: [ActivityEntity],
+        snapshots: [ActivitySnapshot],
         showsTyping: Bool
     ) {
         if showsTyping {
             proxy.scrollTo("typing-indicator", anchor: .bottom)
-        } else if let lastActivity = displayedActivities.last {
-            proxy.scrollTo(lastActivity.id, anchor: .bottom)
+        } else if let lastSnapshot = snapshots.last {
+            proxy.scrollTo(lastSnapshot.id, anchor: .bottom)
         }
     }
 }
