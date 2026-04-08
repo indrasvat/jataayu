@@ -1,0 +1,354 @@
+#!/usr/bin/env bash
+#
+# ci-release — the actual work that the "Release" GitHub Actions
+# workflow runs. Extracted from `.github/workflows/release.yml` so
+# the logic can be shellchecked, tested locally before pushing a tag,
+# and reused by a maintainer manually if the workflow ever needs to be
+# bypassed.
+#
+# Subcommands (each is independently testable):
+#
+#   parse <tag>                 Print tag metadata in key=value form
+#                               (tag, version, numeric-version,
+#                               prerelease). Used by the workflow to
+#                               seed step outputs.
+#
+#   verify <tag>                Cross-check that the tag's numeric
+#                               version matches `MARKETING_VERSION`
+#                               in project.yml. Exits non-zero with a
+#                               loud message if they disagree.
+#
+#   notes <tag> <out-file>      Extract the CHANGELOG.md section that
+#                               matches <tag>'s version. Falls back
+#                               to the numeric-version entry for
+#                               pre-release tags (so `v1.0.0-alpha.1`
+#                               piggy-backs on [1.0.0]). Falls back
+#                               to a placeholder body if neither
+#                               exists and prints a warning.
+#
+#   build <sim-name> <out-dir>  Run `xcodebuild build` in Release
+#                               configuration for the simulator, with
+#                               code signing disabled. Writes into
+#                               <out-dir>.
+#
+#   package <derived-data>      Zip the `Jools.app` inside the given
+#           <tag> <out-zip>     DerivedData path as
+#                               `Jools-<tag>-iphonesimulator.zip`.
+#
+#   publish <tag> <zip>         Create (or update) a GitHub Release
+#           <notes-file>        for <tag>, attach <zip>, use
+#           [--prerelease]      <notes-file> for the body, and mark as
+#                               a pre-release if the flag is present.
+#
+# Usage:
+#   scripts/ci-release <command> [args...]
+#
+# Environment variables:
+#   CI_RELEASE_PROJECT          Xcode project path        (default: Jools.xcodeproj)
+#   CI_RELEASE_SCHEME           Xcode scheme              (default: Jools)
+#   CI_RELEASE_CHANGELOG        CHANGELOG file path       (default: CHANGELOG.md)
+#   CI_RELEASE_PROJECT_YML      Project YAML path         (default: project.yml)
+#   GH_TOKEN                    Required for `publish` (from workflow env)
+
+set -euo pipefail
+
+# ─────────────────────────────────────────────────────────────────────
+# Configuration
+# ─────────────────────────────────────────────────────────────────────
+
+: "${CI_RELEASE_PROJECT:=Jools.xcodeproj}"
+: "${CI_RELEASE_SCHEME:=Jools}"
+: "${CI_RELEASE_CHANGELOG:=CHANGELOG.md}"
+: "${CI_RELEASE_PROJECT_YML:=project.yml}"
+
+RED=$'\033[31m'
+GREEN=$'\033[32m'
+YELLOW=$'\033[33m'
+CYAN=$'\033[36m'
+RESET=$'\033[0m'
+
+log() {
+    printf '%s→%s %s\n' "$CYAN" "$RESET" "$*"
+}
+
+ok() {
+    printf '%s✓%s %s\n' "$GREEN" "$RESET" "$*"
+}
+
+warn() {
+    printf '%s⚠ %s%s\n' "$YELLOW" "$*" "$RESET" >&2
+}
+
+die() {
+    printf '%s✗ %s%s\n' "$RED" "$*" "$RESET" >&2
+    exit 1
+}
+
+usage() {
+    sed -n '5,40p' "$0" | sed 's/^# \{0,1\}//'
+    exit "${1:-1}"
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# Shared helpers
+# ─────────────────────────────────────────────────────────────────────
+
+# Validate that a string looks like a semver tag (`vX.Y.Z[-prerelease]`).
+# Echoes nothing; exits 1 on mismatch with a diagnostic.
+_validate_tag() {
+    local tag="$1"
+    if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
+        die "tag '$tag' is not a valid semver tag (expected vMAJOR.MINOR.PATCH[-prerelease])"
+    fi
+}
+
+# Split a validated tag into its component parts. Echoes 4 lines:
+#   tag
+#   version          (tag without leading 'v')
+#   numeric-version  (version without any '-prerelease' suffix)
+#   prerelease       (empty if none)
+_split_tag() {
+    local tag="$1"
+    local version numeric prerelease
+    version="${tag#v}"
+    numeric="${version%%-*}"
+    if [ "$numeric" = "$version" ]; then
+        prerelease=""
+    else
+        prerelease="${version#"${numeric}-"}"
+    fi
+    printf '%s\n%s\n%s\n%s\n' "$tag" "$version" "$numeric" "$prerelease"
+}
+
+# Read MARKETING_VERSION from project.yml. project.yml is a simple
+# key:value file, so a small awk scan is enough.
+_read_marketing_version() {
+    [ -f "$CI_RELEASE_PROJECT_YML" ] || die "project yaml not found: $CI_RELEASE_PROJECT_YML"
+    awk '/MARKETING_VERSION:/ {gsub(/"/, "", $2); print $2; exit}' "$CI_RELEASE_PROJECT_YML"
+}
+
+# Pull the block between `## [VERSION]` and the next `## [` heading
+# out of the CHANGELOG. Writes to stdout. Empty output means no match.
+_extract_changelog_section() {
+    local version="$1"
+    [ -f "$CI_RELEASE_CHANGELOG" ] || die "changelog not found: $CI_RELEASE_CHANGELOG"
+    awk -v ver="$version" '
+        BEGIN { capture = 0 }
+        /^## \[/ {
+            if (capture) { exit }
+            if ($0 ~ "^## \\[" ver "\\]") { capture = 1; next }
+        }
+        capture { print }
+    ' "$CI_RELEASE_CHANGELOG"
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# Subcommand: parse
+# ─────────────────────────────────────────────────────────────────────
+
+cmd_parse() {
+    local tag="${1:-}"
+    [ -n "$tag" ] || die "usage: $0 parse <tag>"
+    _validate_tag "$tag"
+
+    # Pull the 4 lines into named bash variables so downstream stdout
+    # is structured as `key=value` for easy sourcing / piping.
+    local parsed
+    parsed=$(_split_tag "$tag")
+    local version numeric prerelease
+    version=$(printf '%s' "$parsed" | sed -n '2p')
+    numeric=$(printf '%s' "$parsed" | sed -n '3p')
+    prerelease=$(printf '%s' "$parsed" | sed -n '4p')
+
+    printf 'tag=%s\n'             "$tag"
+    printf 'version=%s\n'         "$version"
+    printf 'numeric-version=%s\n' "$numeric"
+    printf 'prerelease=%s\n'      "$prerelease"
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# Subcommand: verify
+# ─────────────────────────────────────────────────────────────────────
+
+cmd_verify() {
+    local tag="${1:-}"
+    [ -n "$tag" ] || die "usage: $0 verify <tag>"
+    _validate_tag "$tag"
+
+    local parsed numeric
+    parsed=$(_split_tag "$tag")
+    numeric=$(printf '%s' "$parsed" | sed -n '3p')
+
+    local project_version
+    project_version=$(_read_marketing_version)
+    if [ -z "$project_version" ]; then
+        die "could not read MARKETING_VERSION from $CI_RELEASE_PROJECT_YML"
+    fi
+
+    if [ "$project_version" != "$numeric" ]; then
+        die "project.yml MARKETING_VERSION ($project_version) does not match tag numeric version ($numeric). Run 'make release VERSION=$numeric' before tagging."
+    fi
+    ok "project.yml MARKETING_VERSION matches tag: $project_version"
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# Subcommand: notes
+# ─────────────────────────────────────────────────────────────────────
+
+cmd_notes() {
+    local tag="${1:-}"
+    local out_file="${2:-}"
+    [ -n "$tag" ] && [ -n "$out_file" ] || die "usage: $0 notes <tag> <out-file>"
+    _validate_tag "$tag"
+
+    local parsed version numeric
+    parsed=$(_split_tag "$tag")
+    version=$(printf '%s' "$parsed" | sed -n '2p')
+    numeric=$(printf '%s' "$parsed" | sed -n '3p')
+
+    log "extracting CHANGELOG section for $version"
+    _extract_changelog_section "$version" > "$out_file"
+
+    if [ ! -s "$out_file" ] && [ "$version" != "$numeric" ]; then
+        log "no entry for $version, falling back to $numeric"
+        _extract_changelog_section "$numeric" > "$out_file"
+    fi
+
+    if [ ! -s "$out_file" ]; then
+        warn "no CHANGELOG entry for $version or $numeric — writing placeholder"
+        printf 'Release %s.\n\nNo CHANGELOG entry was present at tag time — see commit history for details.\n' \
+            "$version" > "$out_file"
+    fi
+
+    ok "wrote release notes to $out_file ($(wc -l <"$out_file" | tr -d ' ') lines)"
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# Subcommand: build
+# ─────────────────────────────────────────────────────────────────────
+
+cmd_build() {
+    local sim_name="${1:-}"
+    local out_dir="${2:-}"
+    [ -n "$sim_name" ] && [ -n "$out_dir" ] || die "usage: $0 build <sim-name> <out-dir>"
+
+    log "xcodebuild build Release for '$sim_name' → $out_dir"
+    # `CODE_SIGNING_ALLOWED=NO` / `CODE_SIGNING_REQUIRED=NO` make the
+    # Release build work on CI runners that don't have the project's
+    # signing identity installed. The resulting .app is a
+    # simulator-only binary (no device deployment).
+    xcodebuild build \
+        -project "$CI_RELEASE_PROJECT" \
+        -scheme "$CI_RELEASE_SCHEME" \
+        -destination "platform=iOS Simulator,name=$sim_name" \
+        -configuration Release \
+        -derivedDataPath "$out_dir" \
+        CODE_SIGNING_ALLOWED=NO \
+        CODE_SIGNING_REQUIRED=NO
+    ok "build complete → $out_dir/Build/Products/Release-iphonesimulator/Jools.app"
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# Subcommand: package
+# ─────────────────────────────────────────────────────────────────────
+
+cmd_package() {
+    local derived="${1:-}"
+    local tag="${2:-}"
+    local out_zip="${3:-}"
+    [ -n "$derived" ] && [ -n "$tag" ] && [ -n "$out_zip" ] || die "usage: $0 package <derived-data> <tag> <out-zip>"
+    _validate_tag "$tag"
+
+    local app_path="$derived/Build/Products/Release-iphonesimulator/Jools.app"
+    [ -d "$app_path" ] || die "no Jools.app found at $app_path — run 'build' first"
+
+    log "zipping $app_path → $out_zip"
+    # Use an absolute path for the output so `cd` inside the subshell
+    # doesn't break the destination.
+    local abs_zip
+    if [[ "$out_zip" = /* ]]; then
+        abs_zip="$out_zip"
+    else
+        abs_zip="$PWD/$out_zip"
+    fi
+    (cd "$(dirname "$app_path")" && zip -qry "$abs_zip" "$(basename "$app_path")")
+    ok "packaged $(du -h "$abs_zip" | awk '{print $1}') → $abs_zip"
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# Subcommand: publish
+# ─────────────────────────────────────────────────────────────────────
+
+cmd_publish() {
+    local tag="" zip="" notes_file="" prerelease_flag=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --prerelease)
+                prerelease_flag="--prerelease"
+                shift
+                ;;
+            *)
+                if [ -z "$tag" ]; then
+                    tag="$1"
+                elif [ -z "$zip" ]; then
+                    zip="$1"
+                elif [ -z "$notes_file" ]; then
+                    notes_file="$1"
+                else
+                    die "too many arguments: $1"
+                fi
+                shift
+                ;;
+        esac
+    done
+    [ -n "$tag" ] && [ -n "$zip" ] && [ -n "$notes_file" ] || \
+        die "usage: $0 publish <tag> <zip> <notes-file> [--prerelease]"
+    _validate_tag "$tag"
+    [ -f "$zip" ] || die "zip not found: $zip"
+    [ -f "$notes_file" ] || die "notes file not found: $notes_file"
+    command -v gh >/dev/null 2>&1 || die "gh CLI not installed"
+    [ -n "${GH_TOKEN:-}" ] || die "GH_TOKEN env var not set"
+
+    if gh release view "$tag" --json tagName >/dev/null 2>&1; then
+        log "release $tag already exists — uploading asset to existing release"
+        gh release upload "$tag" "$zip" --clobber
+    else
+        log "creating GitHub Release $tag${prerelease_flag:+ (pre-release)}"
+        if [ -n "$prerelease_flag" ]; then
+            gh release create "$tag" \
+                --title "$tag" \
+                --notes-file "$notes_file" \
+                --prerelease \
+                "$zip"
+        else
+            gh release create "$tag" \
+                --title "$tag" \
+                --notes-file "$notes_file" \
+                "$zip"
+        fi
+    fi
+    ok "published release $tag"
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# Main dispatch
+# ─────────────────────────────────────────────────────────────────────
+
+main() {
+    local cmd="${1:-}"
+    [ -n "$cmd" ] || usage
+    shift || true
+
+    case "$cmd" in
+        parse)    cmd_parse   "$@" ;;
+        verify)   cmd_verify  "$@" ;;
+        notes)    cmd_notes   "$@" ;;
+        build)    cmd_build   "$@" ;;
+        package)  cmd_package "$@" ;;
+        publish)  cmd_publish "$@" ;;
+        -h|--help|help) usage 0 ;;
+        *)        die "unknown subcommand: $cmd (try --help)" ;;
+    esac
+}
+
+main "$@"
