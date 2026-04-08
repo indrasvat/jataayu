@@ -1,0 +1,44 @@
+{
+  "_comment": "Sources list - from GET /v1alpha/sources",
+  "sources": [
+    {
+      "name": "sources/github/indrasvat/namefix",
+      "githubRepo": {
+        "owner": "indrasvat",
+        "repo": "namefix",
+        "isPrivate": true,
+        "defaultBranch": {
+          "displayName": "main"
+        },
+        "branches": [
+          {
+            "displayName": "main"
+          },
+          {
+            "displayName": "feat/explain-command-8249033954077352997"
+          }
+        ]
+      },
+      "id": "github/indrasvat/namefix"
+    },
+    {
+      "name": "sources/github/indrasvat/jools",
+      "githubRepo": {
+        "owner": "indrasvat",
+        "repo": "jools",
+        "defaultBranch": {
+          "displayName": "main"
+        },
+        "branches": [
+          {
+            "displayName": "main"
+          },
+          {
+            "displayName": "create-jools"
+          }
+        ]
+      },
+      "id": "github/indrasvat/jools"
+    }
+  ]
+}

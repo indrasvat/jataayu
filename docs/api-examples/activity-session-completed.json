@@ -1,0 +1,19 @@
+{
+  "name": "sessions/8249033954077352997/activities/6d83509e4cd940ad91820879d1f08783",
+  "createTime": "2025-12-18T08:03:54.008270Z",
+  "originator": "agent",
+  "sessionCompleted": {},
+  "artifacts": [
+    {
+      "changeSet": {
+        "source": "sources/github/indrasvat/namefix",
+        "gitPatch": {
+          "unidiffPatch": "diff --git a/src/cli/explain.ts b/src/cli/explain.ts\nnew file mode 100644\nindex 0000000..f0f2f76\n--- /dev/null\n+++ b/src/cli/explain.ts\n@@ -0,0 +1,11 @@\n+export const explanation = `\n+How namefix works:\n+\n+1. Watch for new files in the configured directories.\n+2. When a new file is detected, it's checked against the include/exclude patterns.\n+3. If the file matches, it's checked to see if it already has the desired format.\n+4. If the file needs renaming, a new name is generated based on the file's creation date.\n+5. The new name is checked for conflicts with existing files.\n+6. If a conflict is found, a number is added to the end of the new name.\n+7. The file is renamed to the new name.\n+`;\ndiff --git a/src/cli/index.ts b/src/cli/index.ts\nindex ef608b4..61fd895 100644\n--- a/src/cli/index.ts\n+++ b/src/cli/index.ts\n@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';\n import os from 'node:os';\n import { fileURLToPath } from 'node:url';\n import path from 'node:path';\n+import { explanation } from './explain.js';\n \n export async function run(argv: string[] = process.argv.slice(2)) {\n \tconst program = new Command();\n@@ -21,6 +22,14 @@ export async function run(argv: string[] = process.argv.slice(2)) {\n \t\t.option('--version', 'Print version')\n \t\t.allowUnknownOption(false);\n \n+\tprogram\n+\t\t.command('explain')\n+\t\t.description('Explain how the file renaming algorithm works.')\n+\t\t.action(() => {\n+\t\t\tconsole.log(explanation);\n+\t\t\tprocess.exit(0);\n+\t\t});\n+\n \tprogram.parse(argv, { from: 'user' });\n \tconst opts = program.opts();\n \n",
+          "baseCommitId": "cc774b08299fcbac88622cd6b0470bbd352bb5d8",
+          "suggestedCommitMessage": "feat: Add `explain` command to CLI\n\nAdds a new `explain` command that prints a summary of the file renaming algorithm to the console. This provides users with a quick way to understand how the application works."
+        }
+      }
+    }
+  ],
+  "id": "6d83509e4cd940ad91820879d1f08783"
+}

@@ -1,0 +1,25 @@
+{
+  "_comment": "List activities response when using the createTime range-cursor filter",
+  "activities": [
+    {
+      "name": "sessions/14365396085129174100/activities/act_20260318_001",
+      "id": "act_20260318_001",
+      "createTime": "2026-03-18T10:24:41.129411Z",
+      "originator": "agent",
+      "progressUpdated": {
+        "title": "Implementing incremental polling",
+        "description": "Updating the client to request only activities newer than the last seen activity timestamp."
+      }
+    },
+    {
+      "name": "sessions/14365396085129174100/activities/act_20260318_002",
+      "id": "act_20260318_002",
+      "createTime": "2026-03-18T10:26:12.118245Z",
+      "originator": "agent",
+      "agentMessaged": {
+        "agentMessage": "I wired the createTime cursor into the activities call and am now validating the deduplication path for optimistic user messages."
+      }
+    }
+  ],
+  "nextPageToken": "eyJvZmZzZXQiOjJ9"
+}

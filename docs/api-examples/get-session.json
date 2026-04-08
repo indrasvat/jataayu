@@ -1,0 +1,19 @@
+{
+  "_comment": "Get session response for an active repository-backed session",
+  "name": "sessions/2948989708192274074",
+  "id": "2948989708192274074",
+  "prompt": "Review the retry logic in the networking stack and make it resilient to 429 responses.",
+  "title": "Harden retry logic",
+  "state": "IN_PROGRESS",
+  "url": "https://jules.google.com/session/2948989708192274074",
+  "sourceContext": {
+    "source": "sources/github/indrasvat/jools",
+    "githubRepoContext": {
+      "startingBranch": "main"
+    }
+  },
+  "automationMode": "AUTO_CREATE_PR",
+  "requirePlanApproval": false,
+  "createTime": "2026-03-24T04:28:49.806457166Z",
+  "updateTime": "2026-03-24T04:30:51.870324Z"
+}

@@ -1,0 +1,154 @@
+name: Release
+
+# Triggered by pushing an annotated tag matching `v*` (e.g. `v1.0.0`,
+# `v1.0.0-alpha.1`). The heavy lifting lives in `scripts/ci-release`
+# so it can be shellchecked and exercised locally before pushing a
+# tag. This workflow is the thinnest wrapper that wires the GitHub
+# Actions environment (runner selection, Xcode install, auth token)
+# to the script's subcommands.
+#
+# Pipeline:
+#
+#   1. parse + verify    — sanity-check the tag against project.yml
+#   2. notes             — extract CHANGELOG section for the tag
+#   3. build             — Release-configuration simulator .app
+#   4. package           — zip it as Jools-<tag>-iphonesimulator.zip
+#   5. publish           — create the GitHub Release with asset
+#
+# Device builds are intentionally out of scope — the project pins
+# to a personal Apple Developer team and only the maintainer has the
+# signing identity. Anyone else should use `make build-device` with
+# their own team via Xcode → Signing & Capabilities.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v1.0.0). Must already exist."
+        required: true
+        type: string
+
+# Only one release run at a time per tag — protects against accidental
+# double-publishes if the tag is force-pushed.
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # required to create the GitHub Release
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so `make generate` can resolve git metadata
+          # in the Inject Build Metadata build phase.
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Resolve tag
+        id: tag
+        # User-controllable inputs are pulled into env vars first so
+        # the `run` body never interpolates them directly into bash.
+        # See: https://github.blog/security/vulnerability-research/
+        #      how-to-catch-github-actions-workflow-injections-before-attackers-do/
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          GH_REF: ${{ github.ref }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+          else
+            TAG="${GH_REF#refs/tags/}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Parse tag metadata
+        id: parse
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          # `ci-release parse` prints `key=value` lines that we feed
+          # straight into $GITHUB_OUTPUT — one shell round-trip, no
+          # awkward step chaining.
+          scripts/ci-release parse "$TAG" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Verify tag vs. project.yml
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: scripts/ci-release verify "$TAG"
+
+      - name: Extract release notes
+        id: notes
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+          scripts/ci-release notes "$TAG" "$NOTES_FILE"
+          echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+          echo "----- release notes preview -----"
+          head -40 "$NOTES_FILE"
+          echo "---------------------------------"
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show toolchain
+        run: xcodebuild -version
+
+      - name: Install build tools
+        run: brew install xcodegen
+
+      - name: make generate
+        run: make generate
+
+      - name: Pick a simulator
+        id: sim
+        run: |
+          DEST=$(xcrun simctl list devices available | \
+            awk '/^-- iOS/{capture=1} /^--/{if (capture && !/^-- iOS/) capture=0} capture && /iPhone/{print; exit}')
+          NAME=$(echo "$DEST" | sed -E 's/^[[:space:]]*//; s/ \([A-F0-9-]{36}\).*$//')
+          if [ -z "$NAME" ]; then
+            echo "::error::No iPhone simulator available on the runner."
+            exit 1
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "Picked simulator: $NAME"
+
+      - name: Build Release configuration for simulator
+        env:
+          SIM_NAME: ${{ steps.sim.outputs.name }}
+        run: scripts/ci-release build "$SIM_NAME" build/release
+
+      - name: Package .app artifact
+        id: package
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          ZIP="$RUNNER_TEMP/Jools-${TAG}-iphonesimulator.zip"
+          scripts/ci-release package build/release "$TAG" "$ZIP"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          PRERELEASE: ${{ steps.parse.outputs.prerelease }}
+          NOTES_FILE: ${{ steps.notes.outputs.file }}
+          ZIP: ${{ steps.package.outputs.zip }}
+        run: |
+          if [ -n "$PRERELEASE" ]; then
+            scripts/ci-release publish "$TAG" "$ZIP" "$NOTES_FILE" --prerelease
+          else
+            scripts/ci-release publish "$TAG" "$ZIP" "$NOTES_FILE"
+          fi

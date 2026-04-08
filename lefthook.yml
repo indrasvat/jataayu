@@ -1,0 +1,22 @@
+# Lefthook Git Hooks Configuration
+# https://github.com/evilmartians/lefthook
+#
+# Install hooks: lefthook install (or ./scripts/bootstrap)
+# Uninstall:     lefthook uninstall
+
+# Pre-push: Quick checks (lint + kit build) before pushing
+pre-push:
+  commands:
+    quick-check:
+      env:
+        PATH: "/opt/homebrew/bin:/usr/local/bin:${PATH}"
+      run: make lint kit-build
+      fail_text: |
+
+        ╔═══════════════════════════════════════════════════════════════╗
+        ║  ✗ Pre-push checks failed!                                    ║
+        ║                                                               ║
+        ║  Fix the issues above before pushing.                         ║
+        ║  Run 'make ci' locally to see detailed output.                ║
+        ╚═══════════════════════════════════════════════════════════════╝
+

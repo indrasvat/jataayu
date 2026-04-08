@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║                           Jools Bootstrap Script                              ║
+# ║                                                                               ║
+# ║  This script sets up the development environment for new contributors.        ║
+# ║  Run this once after cloning the repository.                                  ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
+# Icons
+CHECK="✓"
+CROSS="✗"
+ARROW="→"
+PACKAGE="📦"
+HOOK="🪝"
+ROCKET="🚀"
+
+print_header() {
+    echo ""
+    echo -e "${BOLD}${MAGENTA}╔═══════════════════════════════════════════════════════════════╗${RESET}"
+    echo -e "${BOLD}${MAGENTA}║${RESET}${BOLD}                    ${CYAN}Jools Bootstrap${RESET}${BOLD}                           ${MAGENTA}║${RESET}"
+    echo -e "${BOLD}${MAGENTA}║${RESET}       ${WHITE}Setting up your development environment${RESET}            ${MAGENTA}║${RESET}"
+    echo -e "${BOLD}${MAGENTA}╚═══════════════════════════════════════════════════════════════╝${RESET}"
+    echo ""
+}
+
+print_step() {
+    echo -e "${BOLD}${BLUE}${ARROW}${RESET} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}${CHECK}${RESET} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}${ARROW}${RESET} $1"
+}
+
+print_error() {
+    echo -e "${RED}${CROSS}${RESET} $1"
+}
+
+check_homebrew() {
+    print_step "Checking Homebrew..."
+    if ! command -v brew &> /dev/null; then
+        print_error "Homebrew not found!"
+        echo -e "  Install from: ${CYAN}https://brew.sh${RESET}"
+        exit 1
+    fi
+    print_success "Homebrew installed"
+}
+
+check_xcode() {
+    print_step "Checking Xcode..."
+    if ! command -v xcodebuild &> /dev/null; then
+        print_error "Xcode Command Line Tools not found!"
+        echo -e "  Run: ${CYAN}xcode-select --install${RESET}"
+        exit 1
+    fi
+    local xcode_version=$(xcodebuild -version | head -1)
+    print_success "Xcode: $xcode_version"
+}
+
+install_dependencies() {
+    print_step "${PACKAGE} Installing dependencies..."
+
+    # SwiftLint
+    if ! command -v swiftlint &> /dev/null; then
+        print_warning "Installing swiftlint..."
+        brew install swiftlint
+    fi
+    print_success "swiftlint $(swiftlint version)"
+
+    # XcodeGen
+    if ! command -v xcodegen &> /dev/null; then
+        print_warning "Installing xcodegen..."
+        brew install xcodegen
+    fi
+    print_success "xcodegen $(xcodegen --version 2>&1 | head -1)"
+
+    # Lefthook
+    if ! command -v lefthook &> /dev/null; then
+        print_warning "Installing lefthook..."
+        brew install lefthook
+    fi
+    print_success "lefthook $(lefthook version 2>&1 | head -1)"
+
+    # xcpretty (optional, for prettier build output)
+    if ! command -v xcpretty &> /dev/null; then
+        print_warning "Installing xcpretty..."
+        gem install xcpretty 2>/dev/null || sudo gem install xcpretty 2>/dev/null || true
+    fi
+    if command -v xcpretty &> /dev/null; then
+        print_success "xcpretty installed"
+    fi
+}
+
+install_hooks() {
+    print_step "${HOOK} Installing pre-push hook..."
+    lefthook install
+    print_success "Pre-push hook installed (runs 'make ci' before every push)"
+}
+
+resolve_packages() {
+    print_step "${PACKAGE} Resolving Swift packages..."
+    cd "$(dirname "$0")/.."
+
+    # Resolve JoolsKit dependencies
+    if [ -d "JoolsKit" ]; then
+        (cd JoolsKit && swift package resolve)
+        print_success "JoolsKit dependencies resolved"
+    fi
+}
+
+generate_project() {
+    print_step "Generating Xcode project..."
+    cd "$(dirname "$0")/.."
+
+    if [ -f "project.yml" ]; then
+        xcodegen generate
+        print_success "Xcode project generated"
+    else
+        print_warning "project.yml not found, skipping project generation"
+    fi
+}
+
+print_complete() {
+    echo ""
+    echo -e "${BOLD}${GREEN}╔═══════════════════════════════════════════════════════════════╗${RESET}"
+    echo -e "${BOLD}${GREEN}║${RESET}${BOLD}          ${CHECK} Bootstrap Complete!                            ${GREEN}║${RESET}"
+    echo -e "${BOLD}${GREEN}╚═══════════════════════════════════════════════════════════════╝${RESET}"
+    echo ""
+    echo -e "${CYAN}${ROCKET} Next steps:${RESET}"
+    echo -e "   ${BOLD}make xcode${RESET}     Open in Xcode"
+    echo -e "   ${BOLD}make build${RESET}     Build the project"
+    echo -e "   ${BOLD}make test${RESET}      Run tests"
+    echo -e "   ${BOLD}make help${RESET}      Show all available commands"
+    echo ""
+}
+
+# Main
+main() {
+    print_header
+    check_homebrew
+    check_xcode
+    install_dependencies
+    install_hooks
+    resolve_packages
+    generate_project
+    print_complete
+}
+
+main "$@"

@@ -1,0 +1,28 @@
+{
+  "_comment": "Get session response for a completed repository-backed session with pull request output",
+  "name": "sessions/14365396085129174100",
+  "id": "14365396085129174100",
+  "prompt": "Refactor the polling client to support incremental activity fetching using the createTime cursor.",
+  "title": "Add incremental activity polling",
+  "state": "COMPLETED",
+  "url": "https://jules.google.com/session/14365396085129174100",
+  "sourceContext": {
+    "source": "sources/github/indrasvat/jools",
+    "githubRepoContext": {
+      "startingBranch": "main"
+    }
+  },
+  "automationMode": "AUTO_CREATE_PR",
+  "requirePlanApproval": false,
+  "outputs": [
+    {
+      "pullRequest": {
+        "url": "https://github.com/indrasvat/jools/pull/42",
+        "title": "feat: add incremental activity polling",
+        "description": "Adds timestamp-based incremental activity polling, refreshes session state handling, and improves dashboard sync performance."
+      }
+    }
+  ],
+  "createTime": "2026-02-14T13:40:44.485451923Z",
+  "updateTime": "2026-02-14T14:36:42.937953Z"
+}

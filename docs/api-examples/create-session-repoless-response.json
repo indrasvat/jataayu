@@ -1,0 +1,12 @@
+{
+  "_comment": "Create session response for a repoless session (sourceContext omitted)",
+  "name": "sessions/8123409871234098712",
+  "id": "8123409871234098712",
+  "prompt": "Write a Bun script that fetches the latest Hacker News top stories and saves a Markdown digest with links and scores.",
+  "title": "Generate HN digest script",
+  "state": "QUEUED",
+  "url": "https://jules.google.com/session/8123409871234098712",
+  "requirePlanApproval": false,
+  "createTime": "2026-03-01T09:15:00.102938Z",
+  "updateTime": "2026-03-01T09:15:00.102938Z"
+}
