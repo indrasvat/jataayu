@@ -19,7 +19,8 @@ env:
 
 jobs:
   # ────────────────────────────────────────────────────────────────────
-  # Lint — fast feedback, runs in parallel with everything else.
+  # Lint — fast feedback before the build/test jobs spin up.
+  # Runs in parallel with everything else.
   # ────────────────────────────────────────────────────────────────────
   lint:
     name: SwiftLint
@@ -36,7 +37,8 @@ jobs:
         run: make lint
 
   # ────────────────────────────────────────────────────────────────────
-  # JoolsKit — pure Swift package. Runs in parallel with everything.
+  # JoolsKit — pure Swift package, no Xcode app dependency.
+  # Runs in parallel with lint and the iOS job.
   # ────────────────────────────────────────────────────────────────────
   joolskit:
     name: JoolsKit (build + test)
@@ -73,27 +75,26 @@ jobs:
         run: make kit-test
 
   # ────────────────────────────────────────────────────────────────────
-  # iOS app — single unified build + test job.
+  # iOS app — matches the original working pipeline: `make build`
+  # then `make test-app`. The only structural change versus the
+  # pre-release baseline is a cross-run DerivedData cache, keyed on
+  # source hash + Xcode build version so warm PRs skip most Swift
+  # compilation.
   #
-  # Earlier iterations split this into `ios-build` + `ios-test-unit` +
-  # `ios-test-ui` with artifact hand-off, banking on parallelism
-  # between the two test targets. That lost wall-clock time, not won
-  # it: each test-job runner paid its own cold simulator boot (~1-2
-  # min) and test-runner bootstrap (~30 s) on top of re-discovering a
-  # valid simulator via simctl (which itself was 20-100 s on a cold
-  # GitHub runner). The per-split overhead ran to ~5 min, which is
-  # more than the JoolsTests tests take in total. Splitting iOS tests
-  # is only worthwhile when unit tests are much slower than sim
-  # overhead — not the case here.
-  #
-  # The keep here is the DerivedData cache across runs, which lets
-  # warm rebuilds skip ~90% of Swift compilation. Source-file hashing
-  # plus the Xcode build version guarantees cache safety.
+  # Earlier experiments tried to split build/test/UI into parallel
+  # jobs with an artifact hand-off, or to use `test-without-building
+  # -xctestrun` as the test path. Both regressed wall time on CI:
+  # the split paid cold simulator boot twice and was dominated by
+  # per-test-host overhead, and `-xctestrun` ran ~4 min slower per
+  # test pass than the scheme-based `xcodebuild test` path on the
+  # macos-15 runner (while being equivalent locally). The Makefile
+  # still exposes those targets for anyone who wants them locally.
   # ────────────────────────────────────────────────────────────────────
   ios:
-    name: iOS (build + test)
+    name: iOS app (build + test)
     runs-on: macos-15
     timeout-minutes: 30
+    needs: [lint, joolskit]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -103,40 +104,66 @@ jobs:
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
 
+      - name: Show toolchain
+        run: xcodebuild -version
+
       - name: Resolve Xcode build version
         id: xcode-version
         run: |
-          xcodebuild -version
           # Hash the Xcode build number into cache keys so an Xcode
           # bump safely invalidates DerivedData. Otherwise stale
-          # module artifacts from the old compiler produce link
-          # errors.
+          # module artifacts from the old compiler produce link errors.
           XCODE_BUILD=$(xcodebuild -version | awk '/Build version/ {print $3}')
           echo "build=$XCODE_BUILD" >> "$GITHUB_OUTPUT"
 
       - name: Install build tools
-        run: brew install xcodegen
+        # xcpretty is a Ruby gem (no longer in homebrew), xcodegen is
+        # the formula. The local Makefile installs them the same way.
+        run: |
+          brew install xcodegen
+          gem install xcpretty
 
       - name: make generate
         run: make generate
 
+      - name: Pick a simulator
+        id: sim
+        run: |
+          # Find the first available iPhone simulator. The runner
+          # image ships with whatever the bundled Xcode supports —
+          # we can't hard-code "iPhone 17 Pro" because the model
+          # lineup churns.
+          DEST=$(xcrun simctl list devices available | \
+            awk '/^-- iOS/{capture=1} /^--/{if (capture && !/^-- iOS/) capture=0} capture && /iPhone/{print; exit}')
+          NAME=$(echo "$DEST" | sed -E 's/^[[:space:]]*//; s/ \([A-F0-9-]{36}\).*$//')
+          if [ -z "$NAME" ]; then
+            echo "::error::No iPhone simulator available on the runner."
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "Picked simulator: $NAME"
+
       - name: Cache DerivedData (incremental Swift builds)
         uses: actions/cache@v4
         with:
-          path: .ci-build
-          # Swap on any source / manifest change. The `restore-keys`
-          # fallback lets Swift do a fast incremental rebuild even on
-          # a partial hit (it diffs module hashes internally).
+          # `make build` / `make test-app` use Xcode's default
+          # DerivedData location (~/Library/Developer/Xcode/
+          # DerivedData). Caching the Jools-* subtree lets a warm
+          # run skip ~90% of Swift compilation. The cache key is
+          # keyed on source hash + Xcode build version so stale
+          # module artifacts never linger after a compiler bump.
+          path: ~/Library/Developer/Xcode/DerivedData/Jools-*
           key: ${{ runner.os }}-xcode${{ steps.xcode-version.outputs.build }}-dd-${{ hashFiles('Jools/**/*.swift', 'JoolsKit/Sources/**/*.swift', 'JoolsTests/**/*.swift', 'JoolsUITests/**/*.swift', 'JoolsKit/Package.resolved', 'project.yml') }}
           restore-keys: |
             ${{ runner.os }}-xcode${{ steps.xcode-version.outputs.build }}-dd-
 
-      - name: make ci-build-for-testing
-        run: make ci-build-for-testing
+      - name: make build
+        env:
+          SIM_NAME: ${{ steps.sim.outputs.name }}
+        run: make build SIMULATOR="$SIM_NAME"
 
-      - name: make ci-test
-        # Runs both JoolsTests and JoolsUITests in a single
-        # xcodebuild test-without-building invocation so the
-        # simulator is booted once (not twice) and the test runner
-        # bootstrap cost is paid once (not twice).
-        run: make ci-test
+      - name: make test-app
+        env:
+          SIM_NAME: ${{ steps.sim.outputs.name }}
+        run: make test-app SIMULATOR="$SIM_NAME"
