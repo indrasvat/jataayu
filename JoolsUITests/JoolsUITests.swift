@@ -70,7 +70,7 @@ final class JoolsUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Jules is working"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Provide the summary to the user"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.scrollViews["chat.scroll"].exists || app.otherElements["chat.scroll"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["chat.scroll"].firstMatch.exists)
         XCTAssertTrue(app.textFields["chat.input"].exists || app.textViews["chat.input"].exists)
         XCTAssertTrue(app.buttons["chat.send"].exists)
         XCTAssertTrue(app.buttons["chat.refresh"].exists)

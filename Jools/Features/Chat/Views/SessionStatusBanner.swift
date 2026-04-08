@@ -39,10 +39,19 @@ struct SessionStatusBanner: View {
                     // the dots flow naturally after the message instead
                     // of sitting in a fixed-width column with a left gap
                     // when only one dot is showing.
+                    //
+                    // Accessibility label is pinned to the STABLE title
+                    // (without the animated dots) so UI tests and
+                    // VoiceOver users see a deterministic string like
+                    // "Jules is working" instead of the momentary
+                    // "Jules is working.." / "Jules is working...".
+                    // Previously the dots broke `XCUIElementQuery` because
+                    // the visible text changed 2-3 times per second.
                     Text(messageWithEllipsis(config: config))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(config.foregroundColor)
                         .lineLimit(1)
+                        .accessibilityLabel(config.message)
 
                     Spacer(minLength: JoolsSpacing.xs)
 
