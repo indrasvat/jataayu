@@ -74,10 +74,15 @@ jobs:
 
   # ────────────────────────────────────────────────────────────────────
   # iOS build — compile app + tests ONCE, cache DerivedData across
-  # runs, upload the build products as an artifact that the two test
-  # jobs share. Measured locally: cold ~25s (warm module cache),
-  # warm rebuild ~3s. On a fresh CI runner cold builds are longer
-  # (~3-5 min) but warm rebuilds should still be under a minute.
+  # runs, upload the build products (including an `.xctestrun` and a
+  # `ci-destination-name.txt` metadata file) as an artifact that the
+  # two downstream test jobs consume.
+  #
+  # The simulator destination is discovered dynamically via
+  # `make ci-discover-destination` (which reads `xcodebuild
+  # -showdestinations`), so this workflow never hardcodes an iPhone
+  # model name — it automatically adapts as GitHub's macos-15 image
+  # churns its simulator lineup.
   # ────────────────────────────────────────────────────────────────────
   ios-build:
     name: iOS (build-for-testing)
@@ -108,21 +113,16 @@ jobs:
       - name: make generate
         run: make generate
 
-      - name: Pick a simulator
+      - name: Discover simulator destination
         id: sim
         run: |
-          # Pick the first available iPhone simulator. Runner images
-          # churn simulator lineups so hardcoding a model name breaks.
-          DEST=$(xcrun simctl list devices available | \
-            awk '/^-- iOS/{capture=1} /^--/{if (capture && !/^-- iOS/) capture=0} capture && /iPhone/{print; exit}')
-          UDID=$(echo "$DEST" | grep -oE '[A-F0-9-]{36}' | head -1)
-          if [ -z "$UDID" ]; then
-            echo "::error::No iPhone simulator available on the runner."
-            xcrun simctl list devices available
+          SIM_NAME=$(make -s ci-discover-destination)
+          if [ -z "$SIM_NAME" ]; then
+            echo "::error::ci-discover-destination returned empty name"
             exit 1
           fi
-          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-          echo "Picked simulator UDID: $UDID"
+          echo "name=$SIM_NAME" >> "$GITHUB_OUTPUT"
+          echo "Discovered simulator: $SIM_NAME"
 
       - name: Cache DerivedData (incremental Swift builds)
         uses: actions/cache@v4
@@ -137,8 +137,8 @@ jobs:
 
       - name: make ci-build-for-testing
         env:
-          SIM_UDID: ${{ steps.sim.outputs.udid }}
-        run: make ci-build-for-testing SIM_UDID="$SIM_UDID"
+          SIM_NAME: ${{ steps.sim.outputs.name }}
+        run: make ci-build-for-testing SIM_NAME="$SIM_NAME"
 
       - name: make ci-package-build
         run: make ci-package-build
@@ -153,7 +153,8 @@ jobs:
 
   # ────────────────────────────────────────────────────────────────────
   # iOS unit tests — downloads the shared build artifact and runs
-  # JoolsTests only. Measured locally: ~9s end-to-end.
+  # JoolsTests only via `make ci-test-unit`, which reads the
+  # simulator name from the metadata file packed by the build job.
   # ────────────────────────────────────────────────────────────────────
   ios-test-unit:
     name: iOS unit tests (JoolsTests)
@@ -177,36 +178,13 @@ jobs:
       - name: make ci-unpack-build
         run: make ci-unpack-build
 
-      - name: Pick a simulator
-        id: sim
-        run: |
-          DEST=$(xcrun simctl list devices available | \
-            awk '/^-- iOS/{capture=1} /^--/{if (capture && !/^-- iOS/) capture=0} capture && /iPhone/{print; exit}')
-          UDID=$(echo "$DEST" | grep -oE '[A-F0-9-]{36}' | head -1)
-          if [ -z "$UDID" ]; then
-            echo "::error::No iPhone simulator available on the runner."
-            exit 1
-          fi
-          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-
-      - name: Pre-boot simulator
-        env:
-          SIM_UDID: ${{ steps.sim.outputs.udid }}
-        # Warm the simulator before xcodebuild so the first test
-        # doesn't eat 15-20s of cold boot time.
-        run: |
-          xcrun simctl boot "${SIM_UDID}" || true
-          xcrun simctl bootstatus "${SIM_UDID}" -b || true
-
       - name: make ci-test-unit
-        env:
-          SIM_UDID: ${{ steps.sim.outputs.udid }}
-        run: make ci-test-unit SIM_UDID="$SIM_UDID"
+        run: make ci-test-unit
 
   # ────────────────────────────────────────────────────────────────────
   # iOS UI tests — same shared artifact, targets JoolsUITests.
   # Runs in parallel with ios-test-unit so wall time is
-  # max(unit, ui), not unit + ui. Measured locally: ~91s.
+  # max(unit, ui), not unit + ui.
   # ────────────────────────────────────────────────────────────────────
   ios-test-ui:
     name: iOS UI tests (JoolsUITests)
@@ -230,26 +208,5 @@ jobs:
       - name: make ci-unpack-build
         run: make ci-unpack-build
 
-      - name: Pick a simulator
-        id: sim
-        run: |
-          DEST=$(xcrun simctl list devices available | \
-            awk '/^-- iOS/{capture=1} /^--/{if (capture && !/^-- iOS/) capture=0} capture && /iPhone/{print; exit}')
-          UDID=$(echo "$DEST" | grep -oE '[A-F0-9-]{36}' | head -1)
-          if [ -z "$UDID" ]; then
-            echo "::error::No iPhone simulator available on the runner."
-            exit 1
-          fi
-          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-
-      - name: Pre-boot simulator
-        env:
-          SIM_UDID: ${{ steps.sim.outputs.udid }}
-        run: |
-          xcrun simctl boot "${SIM_UDID}" || true
-          xcrun simctl bootstatus "${SIM_UDID}" -b || true
-
       - name: make ci-test-ui
-        env:
-          SIM_UDID: ${{ steps.sim.outputs.udid }}
-        run: make ci-test-ui SIM_UDID="$SIM_UDID"
+        run: make ci-test-ui
