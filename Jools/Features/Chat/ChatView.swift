@@ -102,6 +102,7 @@ struct ChatView: View {
         }
         .onAppear {
             configureViewModel()
+            dependencies.notificationManager?.currentlyViewedSessionId = session.id
             guard !dependencies.isUITestMode else { return }
 
             dependencies.pollingService.startPolling(
@@ -128,6 +129,11 @@ struct ChatView: View {
             }
         }
         .onDisappear {
+            // Only clear if this view's session is still the tracked one
+            // (prevents race during fast session switches)
+            if dependencies.notificationManager?.currentlyViewedSessionId == session.id {
+                dependencies.notificationManager?.currentlyViewedSessionId = nil
+            }
             dependencies.pollingService.stopPolling()
             viewModel.teardown()
         }

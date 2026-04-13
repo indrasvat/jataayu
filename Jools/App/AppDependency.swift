@@ -11,6 +11,7 @@ final class AppDependency: ObservableObject {
     let apiClient: APIClient
     let pollingService: PollingService
     let modelContainer: ModelContainer
+    let notificationManager: NotificationManager?
     let isUITestMode: Bool
 
     // MARK: - State
@@ -34,6 +35,9 @@ final class AppDependency: ObservableObject {
 
         // Initialize polling service
         self.pollingService = PollingService(api: apiClient)
+
+        // Initialize notification manager (skip in UI test mode)
+        self.notificationManager = isUITestMode ? nil : NotificationManager(apiClient: apiClient)
 
         // Initialize SwiftData container
         do {
@@ -90,6 +94,7 @@ final class AppDependency: ObservableObject {
         try keychainManager.deleteAPIKey()
         isAuthenticated = false
         pollingService.stopPolling()
+        Task { await notificationManager?.clearAllState() }
     }
 
     /// Wipe every locally cached `SessionEntity`, `SourceEntity`, and

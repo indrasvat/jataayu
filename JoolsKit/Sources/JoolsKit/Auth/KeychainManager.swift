@@ -33,6 +33,7 @@ public final class KeychainManager: Sendable {
 
     public init(service: String = "com.jools.app") {
         self.service = service
+        migrateAccessibilityIfNeeded()
     }
 
     // MARK: - API Key Management
@@ -48,7 +49,7 @@ public final class KeychainManager: Sendable {
             kSecAttrService as String: service,
             kSecAttrAccount as String: apiKeyAccount,
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
         ]
 
         // Delete any existing item first
@@ -126,5 +127,24 @@ public final class KeychainManager: Sendable {
         } else if status != errSecSuccess {
             throw KeychainError.updateFailed(status)
         }
+    }
+
+    // MARK: - Migration
+
+    /// One-time migration from `kSecAttrAccessibleWhenUnlocked` to
+    /// `kSecAttrAccessibleAfterFirstUnlock`. The old accessibility
+    /// prevents background tasks (BGAppRefreshTask) from reading the
+    /// API key when the device is locked. Re-saving with the relaxed
+    /// policy is transparent to the user.
+    private func migrateAccessibilityIfNeeded() {
+        let migrationKey = "jools.keychain.migratedToAfterFirstUnlock.\(service)"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+
+        if let existingKey = loadAPIKey() {
+            try? deleteAPIKey()
+            try? saveAPIKey(existingKey)
+        }
+
+        UserDefaults.standard.set(true, forKey: migrationKey)
     }
 }
