@@ -95,16 +95,16 @@ final class AppDependency: ObservableObject {
         isAuthenticated = false
         pollingService.stopPolling()
         // Synchronous cleanup of notification state to prevent stale
-        // data leaking across account switches. The async clearAllState
-        // handles UNUserNotificationCenter calls; we also clear the
-        // UserDefaults-backed state tracker synchronously here.
+        // data leaking across account switches.
         notificationManager?.pendingSessionId = nil
         notificationManager?.currentlyViewedSessionId = nil
-        UserDefaults.standard.removeObject(forKey: "jools.stateTracker.stateMap")
-        UserDefaults.standard.removeObject(forKey: "jools.stateTracker.hasSeeded")
-        UserDefaults.standard.removeObject(forKey: "jools.stateTracker.pendingTransitions")
+        // Clear UNUserNotificationCenter synchronously (these are safe
+        // to call from the main actor without awaiting).
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        // Clear the state tracker via its actor to avoid bypassing
+        // its serialization and causing a read-after-clear race.
+        Task { await SessionStateTracker.shared.clearAll() }
     }
 
     /// Wipe every locally cached `SessionEntity`, `SourceEntity`, and

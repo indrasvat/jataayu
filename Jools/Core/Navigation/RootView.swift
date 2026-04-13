@@ -120,9 +120,13 @@ struct MainTabView: View {
             showNotificationPrimer = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .joolsNotificationTapped)) { notification in
-            guard let sessionId = notification.userInfo?["sessionId"] as? String else { return }
-            NotificationBridge.shared.pendingSessionId = nil
-            Task { await navigateToSession(id: sessionId) }
+            if let sessionId = notification.userInfo?["sessionId"] as? String {
+                NotificationBridge.shared.pendingSessionId = nil
+                Task { await navigateToSession(id: sessionId) }
+            } else if let tab = notification.userInfo?["tab"] as? String, tab == "sessions" {
+                NotificationBridge.shared.pendingTab = nil
+                selectedTab = .sessions
+            }
         }
         .onAppear {
             // Cold-launch: the notification tap may have fired before

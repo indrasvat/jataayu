@@ -78,7 +78,7 @@ actor SessionStateTracker {
             // Only notify if the state actually changed
             guard previousRaw != rawState else { continue }
 
-            logger.info("State change: \(session.title ?? "?", privacy: .public) \(previousRaw ?? "nil", privacy: .public) → \(rawState, privacy: .public)")
+            logger.info("State change: \(session.id, privacy: .public) \(previousRaw ?? "nil", privacy: .public) → \(rawState, privacy: .public)")
 
             // Only notify for states that require attention or confirm completion
             guard Self.notifiableStates.contains(state) else {

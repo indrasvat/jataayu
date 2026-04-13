@@ -164,7 +164,7 @@ final class NotificationManager: ObservableObject {
         content.body = "\(count) sessions need your attention."
         content.sound = UNNotificationSound(named: UNNotificationSoundName("jools-chime.caf"))
         content.interruptionLevel = .active
-        content.userInfo = ["summary": true]
+        content.userInfo = ["summary": true, "action": "openSessions"]
 
         let request = UNNotificationRequest(
             identifier: "jools-summary-\(Date().timeIntervalSince1970)",

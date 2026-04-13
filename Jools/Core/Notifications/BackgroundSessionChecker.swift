@@ -123,6 +123,7 @@ enum BackgroundSessionChecker {
             content.body = "\(filtered.count) sessions need your attention."
             content.sound = UNNotificationSound(named: UNNotificationSoundName("jools-chime.caf"))
             content.interruptionLevel = .active
+            content.userInfo = ["summary": true, "action": "openSessions"]
             let request = UNNotificationRequest(
                 identifier: "jools-bg-summary",
                 content: content,

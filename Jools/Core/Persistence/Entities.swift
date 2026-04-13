@@ -336,6 +336,7 @@ enum SessionDisplayState: Equatable {
     case awaitingUserInput
     case completed
     case failed
+    case paused
     case cancelled
 
     var sessionState: SessionState {
@@ -354,6 +355,8 @@ enum SessionDisplayState: Equatable {
             return .completed
         case .failed:
             return .failed
+        case .paused:
+            return .paused
         case .cancelled:
             return .cancelled
         }
@@ -391,7 +394,9 @@ enum SessionStateMachine {
             return .completed
         case .failed:
             return .failed
-        case .paused, .cancelled:
+        case .paused:
+            return .paused
+        case .cancelled:
             return .cancelled
         }
     }

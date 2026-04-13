@@ -140,11 +140,21 @@ public final class KeychainManager: Sendable {
         let migrationKey = "jools.keychain.migratedToAfterFirstUnlock.\(service)"
         guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
 
-        if let existingKey = loadAPIKey() {
-            try? deleteAPIKey()
-            try? saveAPIKey(existingKey)
+        guard let existingKey = loadAPIKey() else {
+            // Key not readable (locked device or no key). Don't set the
+            // flag — retry on next launch when the device is unlocked.
+            return
         }
 
-        UserDefaults.standard.set(true, forKey: migrationKey)
+        // Save with new accessibility FIRST, then delete the old entry.
+        // If save fails, the old key is still intact.
+        do {
+            try saveAPIKey(existingKey)
+            // saveAPIKey deletes-then-adds, so the old entry is already
+            // replaced. Mark migration complete.
+            UserDefaults.standard.set(true, forKey: migrationKey)
+        } catch {
+            // Save failed — don't mark as migrated. Retry next launch.
+        }
     }
 }

@@ -39,8 +39,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didReceive response: UNNotificationResponse
     ) async {
         let userInfo = response.notification.request.content.userInfo
-        guard let sessionId = userInfo["sessionId"] as? String else { return }
-        await MainActor.run { NotificationBridge.shared.pendingSessionId = sessionId }
+
+        if let sessionId = userInfo["sessionId"] as? String {
+            await MainActor.run { NotificationBridge.shared.pendingSessionId = sessionId }
+        } else if let action = userInfo["action"] as? String, action == "openSessions" {
+            await MainActor.run { NotificationBridge.shared.pendingTab = "sessions" }
+        }
+        // Summary notifications without a session ID or action just
+        // foreground the app (default iOS behavior).
     }
 }
 
@@ -59,6 +65,18 @@ final class NotificationBridge {
     /// The session ID currently displayed in ChatView. Set by
     /// NotificationManager when ChatView appears/disappears.
     var currentlyViewedSessionId: String?
+
+    /// Set by AppDelegate for summary notification taps to switch tab.
+    var pendingTab: String? {
+        didSet {
+            guard let tab = pendingTab else { return }
+            NotificationCenter.default.post(
+                name: .joolsNotificationTapped,
+                object: nil,
+                userInfo: ["tab": tab]
+            )
+        }
+    }
 
     /// Set by AppDelegate when a notification is tapped. MainTabView
     /// observes changes via Foundation NotificationCenter.
