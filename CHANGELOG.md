@@ -11,6 +11,8 @@ work that doesn't change behaviour but matters for future maintenance.
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-04-13
+
 ### Added
 
 - **Local notifications for session state changes.** Jools now posts

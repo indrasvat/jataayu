@@ -89,7 +89,7 @@ targets:
         # default. (CodeRabbit review.)
         ENABLE_USER_SCRIPT_SANDBOXING: false
         PRODUCT_BUNDLE_IDENTIFIER: com.indrasvat.jools
-        MARKETING_VERSION: "1.0.0"
+        MARKETING_VERSION: "1.1.0"
         CURRENT_PROJECT_VERSION: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Pinned to the project owner's individual Apple Developer team
