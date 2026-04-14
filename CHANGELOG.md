@@ -11,6 +11,8 @@ work that doesn't change behaviour but matters for future maintenance.
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-04-14
+
 ### Changed
 
 - Renamed app from Jools to **Jataayu** — after the sentinel eagle of the Ramayana. New tagline: "Watch over Jules."
