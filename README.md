@@ -118,7 +118,7 @@ For active development. See [Building from source](#building-from-source) below.
 
 ```bash
 git clone git@github.com:indrasvat/jataayu.git
-cd jools
+cd jataayu
 ./scripts/bootstrap     # installs SwiftLint, XcodeGen, Lefthook; resolves SPM; generates the Xcode project
 make xcode              # opens the generated project in Xcode
 ```
