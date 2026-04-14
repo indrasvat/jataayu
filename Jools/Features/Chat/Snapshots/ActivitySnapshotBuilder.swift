@@ -99,10 +99,14 @@ extension ActivitySnapshot.Kind {
                 .compactMap { $0.changeSet?.gitPatch?.changedFiles }
                 .flatMap { $0 } ?? []
 
+            // Normalize blank/whitespace-only strings to nil so the
+            // emptiness check below and the view layer don't need to
+            // handle "" vs nil separately.
+            let title = entity.progressTitle?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            let desc = entity.progressDescription?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+
             // Filter out completely empty progress events that would
             // render as invisible zero-height rows in the list.
-            let title = entity.progressTitle
-            let desc = entity.progressDescription
             if bash.isEmpty && segments.isEmpty && changedFiles.isEmpty
                 && title == nil && desc == nil {
                 return nil
@@ -150,4 +154,8 @@ extension ActivitySnapshot.Kind {
             self = .unsupported(rawType: "UNKNOWN")
         }
     }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }

@@ -357,33 +357,42 @@ private struct SnapshotPlanStepRow: View {
         return false
     }
 
+    private var stepContent: some View {
+        HStack(alignment: .center, spacing: JoolsSpacing.sm) {
+            StepNumberBadgeFromSnapshot(number: number, status: step.status)
+            Text(step.title)
+                .font(.joolsBody)
+                .foregroundStyle(.primary)
+                .lineLimit(isExpanded ? nil : 2)
+                .multilineTextAlignment(.leading)
+            Spacer()
+            if hasDescription {
+                Image(systemName: "chevron.down")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
+            }
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button {
-                guard hasDescription else { return }
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isExpanded.toggle()
-                }
-            } label: {
-                HStack(alignment: .center, spacing: JoolsSpacing.sm) {
-                    StepNumberBadgeFromSnapshot(number: number, status: step.status)
-                    Text(step.title)
-                        .font(.joolsBody)
-                        .foregroundStyle(.primary)
-                        .lineLimit(isExpanded ? nil : 2)
-                        .multilineTextAlignment(.leading)
-                    Spacer()
-                    if hasDescription {
-                        Image(systemName: "chevron.down")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
+            if hasDescription {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded.toggle()
                     }
+                } label: {
+                    stepContent
                 }
+                .buttonStyle(.plain)
+                .padding(.horizontal, JoolsSpacing.md)
+                .padding(.vertical, JoolsSpacing.sm)
+            } else {
+                stepContent
+                    .padding(.horizontal, JoolsSpacing.md)
+                    .padding(.vertical, JoolsSpacing.sm)
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, JoolsSpacing.md)
-            .padding(.vertical, JoolsSpacing.sm)
 
             if isExpanded, let desc = step.description, !desc.isEmpty {
                 RenderedMarkdown(text: desc, font: .joolsCaption)
@@ -798,11 +807,11 @@ private struct CompletionRow: View {
 
 private struct RenderedMarkdown: View {
     let segments: [MarkdownSegment]
+    let font: Font
 
     init(text: String, font: Font = .joolsCaption) {
-        // Render once at init; the segments are Equatable so SwiftUI
-        // will skip re-rendering if the text hasn't changed.
         self.segments = FlatMarkdownRenderer.render(text)
+        self.font = font
     }
 
     var body: some View {
@@ -811,6 +820,7 @@ private struct RenderedMarkdown: View {
                 MarkdownSegmentView(segment: segment)
             }
         }
+        .font(font)
     }
 }
 

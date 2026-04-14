@@ -36,6 +36,7 @@ struct MainTabView: View {
     @State private var selectedTab: Tab = .home
     @State private var deepLinkedSession: SessionEntity?
     @State private var showNotificationPrimer = false
+    @State private var foregroundCheckTask: Task<Void, Never>?
 
     enum Tab: String, CaseIterable {
         case home
@@ -143,11 +144,13 @@ struct MainTabView: View {
                 // Returning to foreground: immediately check for
                 // session state transitions so notifications fire
                 // without waiting for a tab refresh or background
-                // task. This is separate from the polling service
-                // (which ChatView manages for its own session).
-                Task {
+                // task. Cancel any in-flight check to avoid stale
+                // responses racing with the new one.
+                foregroundCheckTask?.cancel()
+                foregroundCheckTask = Task {
                     guard let manager = dependencies.notificationManager else { return }
                     let sessions = try? await dependencies.apiClient.listAllSessions(pageSize: 100)
+                    guard !Task.isCancelled else { return }
                     if let sessions {
                         await manager.checkForTransitions(sessions)
                     }
