@@ -32,6 +32,7 @@ struct RootView: View {
 struct MainTabView: View {
     @EnvironmentObject private var dependencies: AppDependency
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: Tab = .home
     @State private var deepLinkedSession: SessionEntity?
     @State private var showNotificationPrimer = false
@@ -134,6 +135,29 @@ struct MainTabView: View {
             if let sessionId = NotificationBridge.shared.pendingSessionId {
                 NotificationBridge.shared.pendingSessionId = nil
                 Task { await navigateToSession(id: sessionId) }
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                // Returning to foreground: immediately check for
+                // session state transitions so notifications fire
+                // without waiting for a tab refresh or background
+                // task. This is separate from the polling service
+                // (which ChatView manages for its own session).
+                Task {
+                    guard let manager = dependencies.notificationManager else { return }
+                    let sessions = try? await dependencies.apiClient.listAllSessions(pageSize: 100)
+                    if let sessions {
+                        await manager.checkForTransitions(sessions)
+                    }
+                }
+            case .background:
+                // Ensure the next background task is queued every
+                // time we enter background, not just at launch.
+                BackgroundSessionChecker.scheduleNext()
+            default:
+                break
             }
         }
     }
