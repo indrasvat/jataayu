@@ -6,8 +6,9 @@ struct OnboardingView: View {
     @EnvironmentObject private var dependencies: AppDependency
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = OnboardingViewModel()
-    @State private var showingSafari = false
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showingManualEntry = false
+    @State private var waitingForSafariReturn = false
 
     private var titleGradient: LinearGradient {
         if colorScheme == .dark {
@@ -79,8 +80,27 @@ struct OnboardingView: View {
 
                 // Action buttons
                 VStack(spacing: JoolsSpacing.md) {
-                    // Primary: Open Safari to get API key
-                    Button(action: { showingSafari = true }) {
+                    // Primary: Open system Safari (shares Google
+                    // session) so the user lands on /settings/api
+                    // already signed in. SFSafariViewController has
+                    // no cookie sharing, so the Jules SPA redirects
+                    // to a marketing page where the sign-in button
+                    // is below the fold and easy to miss.
+                    Button(action: {
+                        // Go through Google AccountChooser with a
+                        // continue URL to the Jules API settings page.
+                        // This bypasses the Jules landing page entirely
+                        // (which has a viewport bug hiding the sign-in
+                        // button on mobile Safari). If the user is
+                        // already signed in, Google skips the chooser
+                        // and redirects straight to /settings/api.
+                        let settingsURL = "https://jules.google.com/settings/api"
+                        let encodedContinue = settingsURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? settingsURL
+                        if let url = URL(string: "https://accounts.google.com/AccountChooser?continue=\(encodedContinue)") {
+                            UIApplication.shared.open(url)
+                            waitingForSafariReturn = true
+                        }
+                    }) {
                         HStack(spacing: JoolsSpacing.xs) {
                             Image(systemName: "safari")
                             Text("Connect to Jules")
@@ -114,12 +134,13 @@ struct OnboardingView: View {
                     .padding(.bottom, JoolsSpacing.sm)
             }
         }
-        .fullScreenCover(isPresented: $showingSafari) {
-            SafariView(url: URL(string: "https://jules.google.com/settings/api")!)
-                .onDisappear {
-                    viewModel.checkClipboardForAPIKey()
-                }
-                .ignoresSafeArea()
+        .onChange(of: scenePhase) { _, newPhase in
+            // When the user returns from system Safari after copying
+            // their API key, check the clipboard.
+            if newPhase == .active && waitingForSafariReturn {
+                waitingForSafariReturn = false
+                viewModel.checkClipboardForAPIKey()
+            }
         }
         .sheet(isPresented: $showingManualEntry) {
             ManualKeyEntrySheet(viewModel: viewModel)
