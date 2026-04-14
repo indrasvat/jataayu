@@ -31,9 +31,9 @@
 #                               code signing disabled. Writes into
 #                               <out-dir>.
 #
-#   package <derived-data>      Zip the `Jools.app` inside the given
+#   package <derived-data>      Zip the `Jataayu.app` inside the given
 #           <tag> <out-zip>     DerivedData path as
-#                               `Jools-<tag>-iphonesimulator.zip`.
+#                               `Jataayu-<tag>-iphonesimulator.zip`.
 #
 #   publish <tag> <zip>         Create (or update) a GitHub Release
 #           <notes-file>        for <tag>, attach <zip>, use
@@ -44,7 +44,7 @@
 #   scripts/ci-release <command> [args...]
 #
 # Environment variables:
-#   CI_RELEASE_PROJECT          Xcode project path        (default: Jools.xcodeproj)
+#   CI_RELEASE_PROJECT          Xcode project path        (default: Jataayu.xcodeproj)
 #   CI_RELEASE_SCHEME           Xcode scheme              (default: Jools)
 #   CI_RELEASE_CHANGELOG        CHANGELOG file path       (default: CHANGELOG.md)
 #   CI_RELEASE_PROJECT_YML      Project YAML path         (default: project.yml)

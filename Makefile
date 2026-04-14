@@ -79,7 +79,7 @@ HOOK_ICON        := 🪝
 help: ## Show this help
 	@echo ""
 	@echo "$(BOLD)$(MAGENTA)  ╔═══════════════════════════════════════════════════════════════╗$(RESET)"
-	@echo "$(BOLD)$(MAGENTA)  ║$(RESET)$(BOLD)                         $(CYAN)Jools$(RESET)$(BOLD)                                 $(MAGENTA)║$(RESET)"
+	@echo "$(BOLD)$(MAGENTA)  ║$(RESET)$(BOLD)                       $(CYAN)Jataayu$(RESET)$(BOLD)                               $(MAGENTA)║$(RESET)"
 	@echo "$(BOLD)$(MAGENTA)  ║$(RESET)       $(WHITE)iOS Client for Google's Jules Coding Agent$(RESET)          $(MAGENTA)║$(RESET)"
 	@echo "$(BOLD)$(MAGENTA)  ╚═══════════════════════════════════════════════════════════════╝$(RESET)"
 	@echo ""
@@ -727,7 +727,7 @@ endif
 sim-screenshot-bundle: ## Capture a timestamped screenshot bundle into SCREENSHOT_DIR
 	@mkdir -p "$(SCREENSHOT_DIR)"
 	@STAMP=$$(date +%Y%m%d-%H%M%S); \
-	OUT="$(SCREENSHOT_DIR)/jools-$$STAMP.png"; \
+	OUT="$(SCREENSHOT_DIR)/jataayu-$$STAMP.png"; \
 	echo "$(BOLD)📸 Saving screenshot to $$OUT$(RESET)"; \
 	xcrun simctl io booted screenshot "$$OUT" >/dev/null; \
 	echo "$(GREEN)$(CHECK) Screenshot saved to $$OUT$(RESET)"
