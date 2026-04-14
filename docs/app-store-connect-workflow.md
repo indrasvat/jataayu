@@ -48,7 +48,7 @@ Verify it exists:
 security find-identity -v -p codesigning | grep "Apple Distribution"
 ```
 
-Should show: `Apple Distribution: ROBIN SHARMA (R65679C4F3)`
+Should show your `Apple Distribution: <TEAM_NAME> (<TEAM_ID>)` identity.
 
 ---
 
@@ -67,7 +67,7 @@ xcodebuild archive \
   -archivePath /tmp/Jataayu.xcarchive \
   -destination 'generic/platform=iOS' \
   CODE_SIGN_STYLE=Automatic \
-  DEVELOPMENT_TEAM=R65679C4F3
+  DEVELOPMENT_TEAM=<TEAM_ID>
 ```
 
 ### 2. Export + upload
@@ -83,7 +83,7 @@ Create `/tmp/ExportOptions.plist`:
     <key>method</key>
     <string>app-store-connect</string>
     <key>teamID</key>
-    <string>R65679C4F3</string>
+    <string><!-- your TEAM_ID --></string>
     <key>destination</key>
     <string>upload</string>
     <key>signingStyle</key>
@@ -144,11 +144,9 @@ asc tui                              # terminal UI for browsing
 
 ## App details
 
-| Field | Value |
-|-------|-------|
-| App name | Jataayu |
-| App ID | `6762165924` |
-| Bundle ID | `com.indrasvat.jataayu` |
-| Team ID | `R65679C4F3` |
-| Team name | ROBIN SHARMA |
-| TestFlight group | Dev Team (internal, auto-distribute) |
+| Field | Where to find |
+|-------|---------------|
+| App ID | `asc apps list` |
+| Bundle ID | `project.yml` → `PRODUCT_BUNDLE_IDENTIFIER` |
+| Team ID | `project.yml` → `DEVELOPMENT_TEAM` or Keychain → signing certificate |
+| TestFlight group | `asc testflight groups list` |
