@@ -5,8 +5,8 @@
 <h1 align="center">Jataayu</h1>
 
 <p align="center">
-  <a href="https://github.com/indrasvat/jools/actions/workflows/ci.yml">
-    <img src="https://github.com/indrasvat/jools/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  <a href="https://github.com/indrasvat/jataayu/actions/workflows/ci.yml">
+    <img src="https://github.com/indrasvat/jataayu/actions/workflows/ci.yml/badge.svg" alt="CI" />
   </a>
 </p>
 
@@ -73,7 +73,7 @@ For more, see [`docs/Remaining_Work_Plan_2026-04.md`](docs/Remaining_Work_Plan_2
 
 ### Option A — try the latest release in a simulator (no Xcode build)
 
-Each tagged release publishes a `Jataayu-vX.Y.Z-iphonesimulator.zip` asset on the [Releases page](https://github.com/indrasvat/jools/releases). The zip contains a Release-configuration `Jataayu.app` ready to drop onto a booted iPhone simulator.
+Each tagged release publishes a `Jataayu-vX.Y.Z-iphonesimulator.zip` asset on the [Releases page](https://github.com/indrasvat/jataayu/releases). The zip contains a Release-configuration `Jataayu.app` ready to drop onto a booted iPhone simulator.
 
 ```bash
 # 1. Boot a simulator (any iPhone running iOS 26.0+) and wait for it to
@@ -83,7 +83,7 @@ xcrun simctl bootstatus "iPhone 17 Pro" -b
 open -a Simulator
 
 # 2. Grab the asset from the latest stable release.
-gh release download --repo indrasvat/jools --pattern '*-iphonesimulator.zip'
+gh release download --repo indrasvat/jataayu --pattern '*-iphonesimulator.zip'
 
 # 3. Unzip and install.
 unzip Jataayu-v*-iphonesimulator.zip
@@ -91,7 +91,7 @@ xcrun simctl install booted Jataayu.app
 xcrun simctl launch booted com.indrasvat.jataayu
 ```
 
-> **Installing a pre-release (e.g. alpha / rc)?** `gh release download` without an explicit tag only matches stable releases. For pre-releases, pass the tag by hand: `gh release download v1.0.0-alpha.1 --repo indrasvat/jools --pattern '*-iphonesimulator.zip'`.
+> **Installing a pre-release (e.g. alpha / rc)?** `gh release download` without an explicit tag only matches stable releases. For pre-releases, pass the tag by hand: `gh release download v1.0.0-alpha.1 --repo indrasvat/jataayu --pattern '*-iphonesimulator.zip'`.
 
 This path doesn't require Xcode, signing, or any of the build dependencies — just a Mac with the iOS 26 simulator runtime installed.
 
@@ -117,7 +117,7 @@ For active development. See [Building from source](#building-from-source) below.
 ### One-shot setup
 
 ```bash
-git clone git@github.com:indrasvat/jools.git
+git clone git@github.com:indrasvat/jataayu.git
 cd jools
 ./scripts/bootstrap     # installs SwiftLint, XcodeGen, Lefthook; resolves SPM; generates the Xcode project
 make xcode              # opens the generated project in Xcode

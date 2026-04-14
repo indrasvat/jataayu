@@ -268,5 +268,5 @@ work in Jools:
 - Media-artifact viewer covers only `bashOutput` and `changeSet` types.
 - No remote push notifications.
 
-[Unreleased]: https://github.com/indrasvat/jools/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/indrasvat/jools/releases/tag/v1.0.0
+[Unreleased]: https://github.com/indrasvat/jataayu/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/indrasvat/jataayu/releases/tag/v1.0.0
