@@ -22,12 +22,16 @@ when a task touches them.**
 > git checkout -b refactor/<slug>
 > ```
 >
-> The only things that land on `main` are merged PRs and release
-> tags. If you notice you've already edited files on `main`, stop
-> and move the work to a branch before anything else.
+> The only things that land on `main` are merged PRs and annotated
+> release tags (the tag itself, not the commit it points at — the
+> commit arrived via a merged PR). Even release bumps go through a
+> `chore/release-vX.Y.Z` branch + PR; tag `main` only after the
+> merge lands. If you notice you've already edited files on `main`,
+> stop and move the work to a branch before anything else.
 >
 > This rule has no exceptions. Not "small fix". Not "one-line
-> typo". Not "I'll branch after I see if it works." **Branch first.**
+> typo". Not "release commit, the workflow expects it on main"
+> (it doesn't — it expects the tag). **Branch first.**
 
 ---
 
@@ -209,8 +213,28 @@ tree: bumps `MARKETING_VERSION` in `project.yml`, regenerates
 Jools.xcodeproj, rolls `[Unreleased]` in `CHANGELOG.md` into a
 dated `[X.Y.Z]` section. It does NOT auto-commit, auto-tag, or
 auto-push — tagging is destructive and stays under human control.
-The release commit must include all three changed files:
-`git add project.yml CHANGELOG.md Jataayu.xcodeproj/project.pbxproj`.
+
+**The release commit goes on a branch, not `main`.** Per BRANCH
+FIRST, even release bumps need a PR. Flow:
+
+```bash
+git switch main && git pull
+git checkout -b chore/release-vX.Y.Z
+make release VERSION=X.Y.Z
+git add project.yml CHANGELOG.md Jataayu.xcodeproj/project.pbxproj
+git commit -m "chore(release): vX.Y.Z"
+git push -u origin chore/release-vX.Y.Z
+gh pr create --title "chore(release): vX.Y.Z" --body ...
+# review + CI green, then squash-merge
+gh pr merge --squash --delete-branch
+# only now, on main, tag the merge commit:
+git switch main && git pull
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin vX.Y.Z
+```
+
+The `release.yml` workflow triggers on the tag push, not on any
+commit — so the "release commit on main" path never needs to exist.
 
 **All shell logic lives in `scripts/ci-release`**, not in YAML
 `run:` blocks. It has subcommand dispatch: `parse`, `verify`,
