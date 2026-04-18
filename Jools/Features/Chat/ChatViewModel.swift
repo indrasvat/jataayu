@@ -275,12 +275,66 @@ final class ChatViewModel: PollingServiceDelegate {
             if let latestCreateTime = activities.compactMap(\.createTime).max() {
                 pollingService?.updateActivityCursor(latestCreateTime)
             }
+
+            // Backfill the unidiffPatch for any new sessionCompleted
+            // activities. The list endpoint uses a `fields=` mask that
+            // strips unidiffPatch (see Endpoint.compactActivitiesMask —
+            // that one field can be 94 MB+ on real sessions), so diff
+            // stats on the completion card would otherwise be empty.
+            // Fetch the full activity individually to populate them.
+            // Cheap: one extra GET per new completion, and sessions
+            // typically have at most one active completion at a time.
+            let newlyCompleted = activities.filter {
+                $0.activityType == .sessionCompleted
+                && ($0.artifacts?.contains(where: { $0.changeSet?.gitPatch != nil }) ?? false)
+            }
+            for completion in newlyCompleted {
+                await backfillCompletion(
+                    activityId: completion.id,
+                    sessionId: sessionId,
+                    modelContext: modelContext
+                )
+            }
+
             handleSuccessfulSync(reason: reason, receivedActivities: activities, stateChanged: outcome.stateChanged)
         } catch is CancellationError {
             logger.debug("Cancelled refresh for \(reason.rawValue, privacy: .public)")
         } catch {
             handleSyncFailure(error, reason: reason)
         }
+    }
+
+    /// Fetch a single activity in its full unmasked shape to populate
+    /// `unidiffPatch` (which the list-endpoint mask omits for payload-
+    /// size reasons). Writes the refreshed content back to SwiftData.
+    /// Best-effort: failures are logged and swallowed — the list
+    /// already succeeded, a completion card rendered with empty diff
+    /// stats is strictly better than blocking the refresh.
+    private func backfillCompletion(
+        activityId: String,
+        sessionId: String,
+        modelContext: ModelContext
+    ) async {
+        guard let apiClient else { return }
+        do {
+            let full = try await apiClient.getActivity(sessionId: sessionId, activityId: activityId)
+            guard let persisted = persistedActivity(id: activityId) else { return }
+            let data = try JSONEncoder().encode(full.content)
+            if persisted.contentJSON != data {
+                persisted.contentJSON = data
+                try? modelContext.save()
+            }
+        } catch {
+            logger.debug("Backfill of completion \(activityId, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func persistedActivity(id: String) -> ActivityEntity? {
+        guard let modelContext else { return nil }
+        let descriptor = FetchDescriptor<ActivityEntity>(
+            predicate: #Predicate { $0.id == id }
+        )
+        return try? modelContext.fetch(descriptor).first
     }
 
     // MARK: - Send Message
