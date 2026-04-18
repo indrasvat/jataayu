@@ -255,6 +255,19 @@ final class ChatViewModel: PollingServiceDelegate {
                 // tip — usually zero, often a handful, never the whole
                 // history. The no-cursor path is reserved for initial
                 // load when there's literally nothing persisted yet.
+                //
+                // Invariant: the Jules REST API is append-only —
+                // activities are emitted once by server-side and never
+                // mutated in place (no retroactive `createTime`
+                // corrections, no amended `messageContent`, no bash
+                // output edits). The `syncActivities` idempotent write
+                // path still compares-before-writes, so any future
+                // invariant break would surface as "row X looks stale,
+                // never updates" and is fixable by clearing
+                // `latestKnownActivityCreateTime` to force a no-cursor
+                // refetch. If the invariant ever erodes, remove the
+                // cursor for the specific refresh reason that needs a
+                // full re-sync (e.g. `.staleRecovery`).
                 let cursor = latestKnownActivityCreateTime()
                 if cursor != nil {
                     activities = try await apiClient.listAllActivities(
