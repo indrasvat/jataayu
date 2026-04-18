@@ -28,6 +28,27 @@ work that doesn't change behaviour but matters for future maintenance.
   was advertising an unreachable gesture. The banner is now
   tappable when idle (and says "Tap or pull to refresh"), calling
   the same `manualRefresh()` path as pull-to-refresh.
+- **Session refresh no longer stalls on large sessions.** Three
+  compounding issues made long-running sessions (dorikin's perf
+  session: 100+ activities, heavy bash outputs) stuck on "Showing
+  the last synced timeline. Tap to retry" forever:
+  - The REST `listActivities` endpoint returns `unidiffPatch` inline
+    for every changeSet artifact, which on a session where Jules
+    accidentally captured binary data ballooned a single page
+    response to **874 MB / 92 s** (measured). `URLSession`'s default
+    60 s per-request timeout made every retry fail the same way.
+  - Manual / foreground refresh skipped the `createTime` cursor and
+    re-downloaded the entire history every time.
+  - No URLSession timeout override, so the app was capped at 60 s
+    per request.
+  Fix: (a) request the Google `fields=` partial-response mask on
+  `listActivities` to omit `unidiffPatch` (drops a 20-activity page
+  from ~175 MB → ~16 KB in our reproducer); (b) always use the
+  `createTime` cursor once we have persisted activities, even on a
+  "hard" refresh; (c) configure APIClient's URLSession with a 120 s
+  per-request and 180 s per-resource timeout. Full diff is
+  fetched on demand via `getActivity` when the diff viewer opens
+  (follow-up work).
 
 ## [1.2.4] — 2026-04-18
 

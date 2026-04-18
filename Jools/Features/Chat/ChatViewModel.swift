@@ -196,25 +196,25 @@ final class ChatViewModel: PollingServiceDelegate {
     // MARK: - Refresh
 
     func loadActivities() async {
-        await refreshSession(reason: .initialLoad, hardRefresh: true)
+        await refreshSession(reason: .initialLoad)
     }
 
     func manualRefresh() async {
         pollingService?.triggerImmediatePoll(reason: .manualRefresh)
-        await refreshSession(reason: .manualRefresh, hardRefresh: true)
+        await refreshSession(reason: .manualRefresh)
     }
 
     func handleForegroundResume() async {
         pollingService?.enterForeground()
-        await refreshSession(reason: .foregroundResume, hardRefresh: true)
+        await refreshSession(reason: .foregroundResume)
     }
 
-    private func refreshSession(reason: PollingRefreshReason, hardRefresh: Bool) async {
+    private func refreshSession(reason: PollingRefreshReason) async {
         refreshTask?.cancel()
 
         let task = Task { [weak self] in
             guard let self else { return }
-            await self.performRefresh(reason: reason, hardRefresh: hardRefresh)
+            await self.performRefresh(reason: reason)
         }
 
         refreshTask = task
@@ -225,7 +225,7 @@ final class ChatViewModel: PollingServiceDelegate {
         }
     }
 
-    private func performRefresh(reason: PollingRefreshReason, hardRefresh: Bool) async {
+    private func performRefresh(reason: PollingRefreshReason) async {
         guard let apiClient, let sessionId, let modelContext else { return }
 
         let shouldBlockLoad = !hasPersistedActivities()
@@ -244,14 +244,25 @@ final class ChatViewModel: PollingServiceDelegate {
             let session = try await apiClient.getSession(id: sessionId)
             let activities: [ActivityDTO]
             do {
-                if hardRefresh {
-                    activities = try await apiClient.listAllActivities(sessionId: sessionId, pageSize: 100)
-                } else {
+                // Use the `createTime` cursor whenever we already have
+                // persisted activities — even on a "hard" refresh. The
+                // public REST API returns full bash outputs and full
+                // artifact bodies inline, so a no-cursor fetch of a
+                // large session can be 800+ MB and >90s (measured on
+                // dorikin's perf session), blowing URLSession's budget
+                // and hard-looping every retry on `.stale`. With the
+                // cursor we pull only activities newer than SwiftData's
+                // tip — usually zero, often a handful, never the whole
+                // history. The no-cursor path is reserved for initial
+                // load when there's literally nothing persisted yet.
+                let cursor = latestKnownActivityCreateTime()
+                if cursor != nil {
                     activities = try await apiClient.listAllActivities(
                         sessionId: sessionId,
-                        pageSize: 100,
-                        createTime: latestKnownActivityCreateTime()
+                        createTime: cursor
                     )
+                } else {
+                    activities = try await apiClient.listAllActivities(sessionId: sessionId)
                 }
             } catch NetworkError.notFound {
                 activities = []
@@ -581,7 +592,7 @@ final class ChatViewModel: PollingServiceDelegate {
             await MainActor.run {
                 self.syncState = .syncing
             }
-            await self.refreshSession(reason: .staleRecovery, hardRefresh: true)
+            await self.refreshSession(reason: .staleRecovery)
 
             await MainActor.run {
                 guard let session = self.persistedSession(sessionId: sessionId),
@@ -619,7 +630,7 @@ final class ChatViewModel: PollingServiceDelegate {
             return
         }
         lastStaleRecoveryAt = now
-        await refreshSession(reason: .staleRecovery, hardRefresh: true)
+        await refreshSession(reason: .staleRecovery)
     }
 
     private func applyUITestOverrides() {
