@@ -273,6 +273,22 @@ public actor APIClient {
         createTime: Date? = nil,
         fields: String? = Endpoint.compactActivitiesMask
     ) async throws -> [ActivityDTO] {
+        // When we're going to client-side-filter by `createTime`
+        // (because the server may or may not apply the filter — see
+        // `supportsActivityCreateTimeFilter` fallback), the response
+        // MUST carry `createTime` on every activity. A caller who
+        // passes a custom `fields` mask that omits it would fall
+        // through the `guard let activityCreateTime` branch below
+        // and spuriously KEEP old activities, producing duplicate
+        // timeline rows. Fail closed rather than silently mislead.
+        if createTime != nil,
+           let fields,
+           !fields.contains("createTime") {
+            throw NetworkError.apiError(
+                "listAllActivities cursor requires `createTime` in the fields mask; got: \(fields)"
+            )
+        }
+
         var pageToken: String?
         var aggregated: [ActivityDTO] = []
 
