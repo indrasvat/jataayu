@@ -11,6 +11,8 @@ work that doesn't change behaviour but matters for future maintenance.
 
 ## [Unreleased]
 
+## [1.2.4] — 2026-04-18
+
 ### Fixed
 
 - **Duplicate "Plan approved" row in chat history.** The Jules REST
