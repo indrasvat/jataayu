@@ -259,8 +259,21 @@ final class ChatViewModel: PollingServiceDelegate {
 
             try Task.checkCancellation()
 
-            let outcome = updateSession(session, sessionId: sessionId, modelContext: modelContext)
-            syncActivities(activities, sessionId: sessionId, modelContext: modelContext)
+            // Encode DTO content bodies off the main actor before the
+            // main-actor SwiftData pass. JSONEncoder is pure, and a
+            // hard refresh can carry 100 activities — walking that on
+            // main blocks the UI for hundreds of ms on a large
+            // session. Done in parallel when possible.
+            let encodedContents = await Self.encodeContents(for: activities)
+
+            try Task.checkCancellation()
+
+            let outcome = updateSession(session, sessionId: sessionId, modelContext: modelContext, save: false)
+            syncActivities(activities, encodedContents: encodedContents, sessionId: sessionId, modelContext: modelContext, save: false)
+            // Single save for the whole refresh pass — previously
+            // updateSession AND syncActivities each saved independently,
+            // doubling the object-graph walk on large sessions.
+            try? modelContext.save()
             if let latestCreateTime = activities.compactMap(\.createTime).max() {
                 pollingService?.updateActivityCursor(latestCreateTime)
             }
@@ -434,7 +447,28 @@ final class ChatViewModel: PollingServiceDelegate {
     // makes a no-op poll cost zero and preserves the existing
     // observation surface for genuine updates.
 
-    private func syncActivities(_ dtos: [ActivityDTO], sessionId: String, modelContext: ModelContext) {
+    /// Encode every DTO's `content` body on a background executor so
+    /// the main-actor sync loop doesn't pay that cost. Pure function,
+    /// nonisolated. Results are aligned index-wise with the input.
+    private nonisolated static func encodeContents(for dtos: [ActivityDTO]) async -> [Data?] {
+        await Task.detached(priority: .userInitiated) {
+            let encoder = JSONEncoder()
+            return dtos.map { try? encoder.encode($0.content) }
+        }.value
+    }
+
+    /// Apply activity DTO updates to SwiftData. Pass pre-encoded
+    /// `contentJSON` bodies from `encodeContents(for:)` so this pass
+    /// stays cheap on the main actor. When `save` is false, the caller
+    /// is responsible for committing the `modelContext` — useful to
+    /// batch with `updateSession` on the refresh path.
+    private func syncActivities(
+        _ dtos: [ActivityDTO],
+        encodedContents: [Data?]? = nil,
+        sessionId: String,
+        modelContext: ModelContext,
+        save: Bool = true
+    ) {
         guard let session = persistedSession(sessionId: sessionId) else { return }
 
         let existingActivities = Dictionary(
@@ -445,13 +479,18 @@ final class ChatViewModel: PollingServiceDelegate {
 
         var didMutate = false
 
-        for dto in dtos {
+        for (index, dto) in dtos.enumerated() {
+            let contentData: Data?
+            if let encodedContents, index < encodedContents.count {
+                contentData = encodedContents[index]
+            } else {
+                contentData = try? JSONEncoder().encode(dto.content)
+            }
             if let existing = existingActivities[dto.id] {
                 // Idempotent update path. Both fields are compared
                 // before being written so a poll that returns the
                 // same activity body produces zero SwiftData writes.
-                if let contentData = try? JSONEncoder().encode(dto.content),
-                   existing.contentJSON != contentData {
+                if let contentData, existing.contentJSON != contentData {
                     existing.contentJSON = contentData
                     didMutate = true
                 }
@@ -478,12 +517,17 @@ final class ChatViewModel: PollingServiceDelegate {
             }
         }
 
-        if didMutate {
+        if save && didMutate {
             try? modelContext.save()
         }
     }
 
-    private func updateSession(_ dto: SessionDTO, sessionId: String, modelContext: ModelContext) -> SessionUpdateOutcome {
+    private func updateSession(
+        _ dto: SessionDTO,
+        sessionId: String,
+        modelContext: ModelContext,
+        save: Bool = true
+    ) -> SessionUpdateOutcome {
         guard let session = persistedSession(sessionId: sessionId) else {
             return SessionUpdateOutcome(stateChanged: false)
         }
@@ -521,7 +565,7 @@ final class ChatViewModel: PollingServiceDelegate {
             }
         }
 
-        if didMutate {
+        if save && didMutate {
             try? modelContext.save()
         }
         return SessionUpdateOutcome(stateChanged: previousState != session.stateRaw)
