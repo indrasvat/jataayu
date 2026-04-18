@@ -403,6 +403,17 @@ enum SessionStateMachine {
 
     /// Fold an activity into the current display state.
     ///
+    /// Preconditions: callers MUST feed activities sorted ascending
+    /// by `createdAt` (see `resolve(apiState:activities:)` line 370
+    /// which does the sort on the reduce input). The `.completed →
+    /// .working` re-entry fix depends on chronological ordering:
+    /// when Jules resumes work after a `.sessionCompleted`, the
+    /// later `.progressUpdated` activity must arrive AFTER the
+    /// completion in the reduce stream or it'll be clobbered. If a
+    /// future caller reduces activities in arbitrary order — or the
+    /// API ever returns non-monotonic `createTime` values within a
+    /// session — this state machine's output becomes undefined.
+    ///
     /// Design note: this state machine is deliberately narrow. It trusts
     /// typed activity markers (which are unambiguous) and falls back to
     /// the seeded API state for everything else. It intentionally does
