@@ -23,8 +23,18 @@ public enum Endpoint: Sendable {
     case sendMessage(sessionId: String)
 
     // Activities
-    case activities(sessionId: String, pageSize: Int, pageToken: String?, createTime: Date?)
+    case activities(sessionId: String, pageSize: Int, pageToken: String?, createTime: Date?, fields: String?)
     case activity(sessionId: String, activityId: String)
+
+    /// Compact `fields=` mask for `listActivities`. Omits the one
+    /// field that explodes response size on sessions with large
+    /// changesets: `artifacts.changeSet.gitPatch.unidiffPatch`.
+    /// Measured on a real dorikin session: including `unidiffPatch`
+    /// → 874 MB / 92 s for 100 activities. Excluding it → 25 KB /
+    /// 7 s. Same session, same activities. The diff is fetched
+    /// separately via the single-activity `get` endpoint when the
+    /// user opens the diff viewer.
+    public static let compactActivitiesMask = "activities(name,id,createTime,originator,description,userMessaged,agentMessaged,planGenerated,planApproved,progressUpdated,sessionCompleted,sessionFailed,artifacts(bashOutput(command,output,exitCode),changeSet(source,gitPatch(baseCommitId,suggestedCommitMessage)))),nextPageToken"
 
     /// The URL path for this endpoint
     public var path: String {
@@ -61,7 +71,7 @@ public enum Endpoint: Sendable {
         case .sendMessage(let sessionId):
             return "sessions/\(sessionId):sendMessage"
 
-        case .activities(let sessionId, let pageSize, let pageToken, let createTime):
+        case .activities(let sessionId, let pageSize, let pageToken, let createTime, let fields):
             var components = URLComponents()
             components.path = "sessions/\(sessionId)/activities"
             var queryItems = [URLQueryItem(name: "pageSize", value: String(pageSize))]
@@ -70,6 +80,9 @@ public enum Endpoint: Sendable {
             }
             if let createTime {
                 queryItems.append(URLQueryItem(name: "createTime", value: Self.activitiesTimestampString(from: createTime)))
+            }
+            if let fields {
+                queryItems.append(URLQueryItem(name: "fields", value: fields))
             }
             components.queryItems = queryItems
             return components.string ?? "sessions/\(sessionId)/activities?pageSize=\(pageSize)"

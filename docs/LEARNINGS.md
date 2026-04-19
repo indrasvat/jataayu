@@ -474,6 +474,75 @@ more" display in the web UI derives file names from the batch RPC,
 not from the activity's changeSet. Our `changedFiles` extraction
 from progress events is correct code but will often be empty.
 
+### Public REST `listActivities` dumps 800+ MB without `fields=` mask
+
+Sessions that involve large bash outputs or accidentally-captured
+binary data (e.g., a `kubectl` binary landing in a generated
+`unidiffPatch`) ballooned the public REST `listActivities` response
+to **874 MB / 92 s** for a single `pageSize=100` page (measured on
+dorikin's perf session). The web UI's private `batchexecute` RPC
+returns the same session in ~106 KB / ~500 ms.
+
+**Fix pattern:** every `listActivities` (and `listSessions`) call
+MUST send Google's standard `fields=` partial-response mask. The
+single field responsible for the bloat is
+`changeSet.gitPatch.unidiffPatch`. Exclude it from list responses
+and lazy-fetch the full diff via `getActivity(activityId:)` when
+the user opens the diff viewer on a sessionCompleted card. The
+official discovery doc at
+`https://jules.googleapis.com/$discovery/rest?version=v1alpha`
+has NO `view=` / compact-mode param — `fields=` is the only lever.
+
+**Rule of thumb:** any client hitting this REST API without
+`fields=` on list endpoints is one "Jules captured binary data"
+away from a 60s+ `URLErrorTimedOut` on every fetch.
+
+### `URLSession.shared`'s 60s default timeout is too short for Jules REST
+
+Even with the `fields=` mask, first-load on a large session (no
+cursor, full pagination) can take > 60s. Configure APIClient's
+URLSession with `timeoutIntervalForRequest = 120` and
+`timeoutIntervalForResource = 180` to give manual / foreground /
+stale-recovery refreshes room to complete instead of loop on
+`.stale`.
+
+### Always use the `createTime` cursor on manual refresh
+
+The old `performRefresh` path took a `hardRefresh: Bool` flag that,
+when true (i.e., for initial load, manual refresh, foreground
+resume, stale recovery — ALL the user-triggered paths), SKIPPED the
+cursor and fetched the full activity history. On a long session
+this downloads everything already persisted in SwiftData, on every
+refresh. Drop the flag: always use the cursor once there are
+persisted activities. Reserve the unfiltered full fetch for the
+initial-load case where there's literally no cursor to use.
+
+### Completed is NOT terminal — Jules resumes on user follow-up
+
+A `sessionCompleted` activity looks terminal but Jules genuinely
+re-enters working state when the user sends a follow-up message.
+The state machine must NOT mark `.completed` as sticky: a later
+`progressUpdated` / `planGenerated` / `userMessaged` / `planApproved`
+activity in the timeline is by definition (sorted by `createdAt`)
+a re-entry, not replay. Only `.failed` / `.cancelled` / `.paused`
+are true terminal states.
+
+Symptom when wrong: the green "Session completed" banner stays up
+while new `Updated <file>` rows render underneath — confusing
+because pull-to-refresh does fetch fresh data but the derived
+display state is frozen.
+
+### SwiftUI `.refreshable` only covers its own scroll region
+
+Attaching `.refreshable` to a `List` means pull-to-refresh works
+only while the pull gesture originates *inside* the list's scroll
+view. Any sibling view above the list (status banners, custom
+chrome) is NOT a pull target, even if it says "Pull to refresh".
+If a non-list affordance advertises refresh, wire a tap gesture
+on the affordance that calls the same refresh closure.
+
+---
+
 ### API emits duplicate `planApproved` activities per approval
 
 A single plan approval yields two `planApproved` entries in

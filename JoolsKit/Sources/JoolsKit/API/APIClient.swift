@@ -17,11 +17,24 @@ public actor APIClient {
 
     public init(
         keychain: KeychainManager,
-        session: URLSession = .shared,
+        session: URLSession? = nil,
         baseURL: URL = URL(string: "https://jules.googleapis.com/v1alpha/")!
     ) {
         self.keychain = keychain
-        self.session = session
+        // `URLSession.shared`'s default `timeoutIntervalForRequest`
+        // is 60s. The public Jules REST API can return enormous
+        // payloads for sessions with large bash outputs (measured
+        // 874 MB / 92 s for a single `listActivities?pageSize=100`
+        // on a real dorikin session) and blows that default. A
+        // configured session with a 120s per-request budget lets
+        // first-load on a large session complete instead of hard-
+        // looping on `.stale` forever.
+        self.session = session ?? {
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 120
+            config.timeoutIntervalForResource = 180
+            return URLSession(configuration: config)
+        }()
         self.baseURL = baseURL
 
         self.decoder = JSONDecoder()
@@ -208,12 +221,21 @@ public actor APIClient {
 
     // MARK: - Activities
 
-    /// List activities in a session
+    /// List activities in a session.
+    ///
+    /// By default requests the compact `fields=` mask that excludes
+    /// `changeSet.gitPatch.unidiffPatch` — the one field that can
+    /// inflate a 100-activity response from ~25 KB to 800+ MB on
+    /// real sessions. Callers that need the full unidiff (e.g., the
+    /// diff viewer for a completion card) should pass
+    /// `fields: nil` or use `getActivity` to lazy-fetch the
+    /// individual activity.
     public func listActivities(
         sessionId: String,
         pageSize: Int = 30,
         pageToken: String? = nil,
-        createTime: Date? = nil
+        createTime: Date? = nil,
+        fields: String? = Endpoint.compactActivitiesMask
     ) async throws -> PaginatedResponse<ActivityDTO> {
         let requestedCreateTime = supportsActivityCreateTimeFilter ? createTime : nil
 
@@ -223,22 +245,50 @@ public actor APIClient {
                     sessionId: sessionId,
                     pageSize: pageSize,
                     pageToken: pageToken,
-                    createTime: requestedCreateTime
+                    createTime: requestedCreateTime,
+                    fields: fields
                 )
             )
         } catch NetworkError.apiError(let message)
             where createTime != nil && requestedCreateTime != nil && isUnsupportedCreateTimeFilter(message) {
             supportsActivityCreateTimeFilter = false
             logger.notice("Activity createTime filter unsupported; falling back to full activity fetches")
-            return try await request(.activities(sessionId: sessionId, pageSize: pageSize, pageToken: pageToken, createTime: nil))
+            return try await request(.activities(sessionId: sessionId, pageSize: pageSize, pageToken: pageToken, createTime: nil, fields: fields))
         }
     }
 
+    /// Fetch all activities for a session, paginating as needed.
+    ///
+    /// Default `pageSize` is 20 (down from 100). The public REST API
+    /// returns full bash command outputs and full artifact bodies,
+    /// which on long-running sessions can inflate a single page to
+    /// hundreds of MB — enough to time out even a generous URLSession
+    /// budget and to cost multiple seconds of main-actor JSON decode.
+    /// Pagination at 20/page keeps each request bounded; the total
+    /// wall time is similar because pagination is serial but each
+    /// individual request now completes comfortably.
     public func listAllActivities(
         sessionId: String,
-        pageSize: Int = 100,
-        createTime: Date? = nil
+        pageSize: Int = 20,
+        createTime: Date? = nil,
+        fields: String? = Endpoint.compactActivitiesMask
     ) async throws -> [ActivityDTO] {
+        // When we're going to client-side-filter by `createTime`
+        // (because the server may or may not apply the filter — see
+        // `supportsActivityCreateTimeFilter` fallback), the response
+        // MUST carry `createTime` on every activity. A caller who
+        // passes a custom `fields` mask that omits it would fall
+        // through the `guard let activityCreateTime` branch below
+        // and spuriously KEEP old activities, producing duplicate
+        // timeline rows. Fail closed rather than silently mislead.
+        if createTime != nil,
+           let fields,
+           !fields.contains("createTime") {
+            throw NetworkError.apiError(
+                "listAllActivities cursor requires `createTime` in the fields mask; got: \(fields)"
+            )
+        }
+
         var pageToken: String?
         var aggregated: [ActivityDTO] = []
 
@@ -247,7 +297,8 @@ public actor APIClient {
                 sessionId: sessionId,
                 pageSize: pageSize,
                 pageToken: pageToken,
-                createTime: createTime
+                createTime: createTime,
+                fields: fields
             )
             aggregated.append(contentsOf: response.allItems)
             pageToken = response.nextPageToken
