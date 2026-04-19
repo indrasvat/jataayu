@@ -137,6 +137,16 @@ struct SessionStatusBanner: View {
                 // explicit "Tap to retry" button which handles it.
                 if case .idle = syncState { onRefresh() }
             }
+            // `.contain` keeps the inner StaticText children (the
+            // banner title, the current-step title/description,
+            // the sync footer, the retry Button) as individually-
+            // queryable accessibility elements. Without this, adding
+            // `.accessibilityAddTraits(.isButton)` on the container
+            // below causes SwiftUI to collapse the subtree into one
+            // AXButton with a concatenated label — which breaks the
+            // XCUITest query `app.staticTexts["Jules is working"]`
+            // in `testRunningSessionScreenShowsRecoveryChrome`.
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("chat.status-banner")
             .accessibilityAddTraits(syncState == .idle ? .isButton : [])
             .accessibilityHint(accessibilityHintText)
